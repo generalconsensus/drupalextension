@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ */
+
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\MinkExtension\Context\RawMinkContext;
@@ -87,6 +91,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Keep track of any other contexts run during this scenario.  If they do
    * not require shared state, I can use them.
+   *
    * @var array
    */
   protected static $contexts = array();
@@ -99,14 +104,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   protected static $languages = array();
 
   /**
-   *
    * Invoking this hook to gather references to other contexts established
    * during runtime.  We use this approach so we can ask questions of
    * other contexts that do not require our shared state.
-   * See https://gist.github.com/stof/930e968829cd66751a3a
+   * See https://gist.github.com/stof/930e968829cd66751a3a.
    */
-  public function beforeScenario(BeforeScenarioScope $scope)
-  {
+  public function beforeScenario(BeforeScenarioScope $scope) {
+
     $environment = $scope->getEnvironment();
     $settings    = $environment->getSuite()->getSettings();
     foreach ($settings['contexts'] as $context_name) {
@@ -124,22 +128,22 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @param AfterScenaroScope $scope
    *   The afterscenario scope.
    */
-  public function afterScenario(AfterScenaroScope $scope)
-  {
-    //make sure references are removed to allow cleanup.  NOt sure if this
-    //is strictly necessary, but better safe than sorry.
+  public function afterScenario(AfterScenaroScope $scope) {
+
+    // Make sure references are removed to allow cleanup.  NOt sure if this
+    // is strictly necessary, but better safe than sorry.
     self::$contexts = array();
   }
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function setDrupal(DrupalDriverManager $drupal) {
     $this->drupal = $drupal;
   }
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function getDrupal() {
     return $this->drupal;
@@ -147,7 +151,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function setDispatcher(HookDispatcher $dispatcher) {
     $this->dispatcher = $dispatcher;
@@ -178,7 +182,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @param string $name
    *   Text value name, such as 'log_out', which corresponds to the default 'Log
    *   out' link text.
+   *
    * @throws \Exception
+   *
    * @return
    */
   public function getDrupalText($name) {
@@ -285,7 +291,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @param string $scope
    *   The entity scope to dispatch.
-   * @param stdClass $entity
+   * @param object $entity
    *   The entity.
    */
   protected function dispatchHooks($scopeType, \stdClass $entity) {
@@ -320,7 +326,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Parse multi-value fields. Possible formats:
    *    A, B, C
-   *    A - B, C - D, E - F
+   *    A - B, C - D, E - F.
    *
    * @param string $entity_type
    *   The entity type.
@@ -424,16 +430,19 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     self::$terms[] = $saved;
     return $saved;
   }
-    /**
+  /**
    * Extracted from DrupalContext's assertLoggedInWithPermissions,
    * this moves the functionality of creating a possibly shared role
    * into the parent class.
-   * @param  string $permissions A comma-separated list of permissinos
+   *
+   * @param string $permissions
+   *   A comma-separated list of permissinos
+   *
    * @return int              The role id of the newly created role.
    */
-  public function roleCreate($permissions){
+  public function roleCreate($permissions) {
     $rid = $this->getDriver()->roleCreate($permissions);
-    self::$roles []= $rid;
+    self::$roles[] = $rid;
     return $rid;
   }
   /**
@@ -457,14 +466,41 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
   /**
    * Returns the currently logged in user, or NULL, if no login action has
-   * yet happened
+   * yet happened.
+   *
    * @return object|NULL
    *         The logged in user, or NULL if no user is currently logged in.
    */
-  public function getCurrentUser(){
+  public function getCurrentUser() {
     if (!$this->loggedIn()) {
       return NULL;
     }
+    return self::$user;
+  }
+  /**
+   * Returns the named user if he/she has been created
+   * @param  string $name The name of the user
+   * @return The user | FALSE
+   *                  Returns FALSE if the named user has not yet been
+   *                  created (in this scenario - doesn't check the db)
+   */
+  public function getNamedUser($name){
+    if (!isset(self::$users[$name])) {
+      return FALSE;
+    }
+    return self::$user;
+  }
+  /**
+   * Assigns the user $name to be the currently logged in user.  Note:
+   *   This user must have been created in a prior step.
+   * @param string $name The name assigned to the user.
+   */
+  public function setNamedUser($name){
+    if (!isset(self::$users[$name])) {
+      throw new \Exception(sprintf('No user with %s name is registered with the driver.', $name));
+    }
+    // Change internal current user.
+    self::$user = self::$users[$name];
     return self::$user;
   }
 
@@ -532,6 +568,53 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function loggedInWithRole($role) {
     return $this->loggedIn() && self::$user && isset(self::$user->role) && self::$user->role == $role;
+  }
+  /**
+   * Retrieves the named context if it was established in the @BeforeScenario hook,
+   * to allow another context to invoke its steps.
+   *
+   * @param string $context_name
+   *   The full (namespaced) context name
+   *
+   * @return Behat\MinkExtension\Context\RawMinkContext
+   *         A class that extends RawMinkContext (or more likely, RawDrupalContext).
+   *
+   * @throws \Exception If the named context does not exist
+   */
+  protected function getContext($context_name) {
+
+    // Print "Subcontexts:\n";
+    // print_r($this->subContexts);.
+    if (!isset(self::$contexts[$context_name])) {
+      throw new \Exception("$context_name context not available from within " . __CLASS__);
+    }
+    return self::$contexts[$context_name];
+  }
+  /**
+   * Convenience method.  Invokes a method on another context object.
+   *
+   * @param string $context_name
+   *   The name of the other context.  This cannot be
+   *                             arbitrary -  said context must have been
+   *                             explicitly stored in the class during the
+   *                             BeforeScenario hook (see gatherContexts).
+   * @param string $method
+   *   The name of the method to invoke.
+   *
+   * @return mixed              The results of the callback from the invoked
+   *                                method.
+   *
+   * @throws \Exception   If the passed method does not exist on the requested
+   *                       context, or if the named context does not exist.
+   */
+  public function callContext($context_name, $method) {
+
+    $other_context = $this->getContext($context_name);
+    if (!method_exists($other_context, $method)) {
+      throw new \Exception("The method $method does not exist in the $context_name context");
+    }
+    $args = array_slice(func_get_args(), 2);
+    return call_user_func_array(array($other_context, $method), $args);
   }
 
 }
