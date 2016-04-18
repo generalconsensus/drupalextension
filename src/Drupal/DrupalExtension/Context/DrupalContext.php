@@ -7,6 +7,7 @@ use Behat\Mink\Element\Element;
 
 use Behat\Gherkin\Node\TableNode;
 
+use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 /**
  * Provides pre-built step definitions for interacting with Drupal.
  */
@@ -105,22 +106,6 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
     }
   }
 
-
-  /**
-   * @Given I am logged in as :name
-   */
-  public function assertLoggedInByName($name) {
-    if (!isset($this->users[$name])) {
-      throw new \Exception(sprintf('No user with %s name is registered with the driver.', $name));
-    }
-
-    // Change internal current user.
-    $this->user = $this->users[$name];
-
-    // Login.
-    $this->login();
-  }
-
   /**
    * @Given I am logged in as a user with the :permissions permission(s)
    */
@@ -189,9 +174,9 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
    */
   public function assertClickInTableRow($link, $rowText) {
     $page = $this->getSession()->getPage();
-    if ($link = $this->getTableRow($page, $rowText)->findLink($link)) {
+    if ($link_element = $this->getTableRow($page, $rowText)->findLink($link)) {
       // Click the link and return.
-      $link->click();
+      $link_element->click();
       return;
     }
     throw new \Exception(sprintf('Found a row containing "%s", but no "%s" link on the page %s', $rowText, $link, $this->getSession()->getCurrentUrl()));
@@ -235,7 +220,7 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
    * @Given I am viewing my :type (content )with the title :title
    */
   public function createMyNode($type, $title) {
-    if (!isset($this->user->uid)) {
+    if (!$this->loggedIn()) {
       throw new \Exception(sprintf('There is no current logged in user to create a node for.'));
     }
 
@@ -243,7 +228,7 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
       'title' => $title,
       'type' => $type,
       'body' => $this->getRandom()->string(255),
-      'uid' => $this->user->uid,
+      'uid' => $this->getCurrentUser()->uid,
     );
     $saved = $this->nodeCreate($node);
 
@@ -257,7 +242,7 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
    * | My title | Joe Editor | 1      | 2014-10-17 8:00am |
    * | ...      | ...        | ...    | ...               |
    *
-   * @Given :type content:
+c   * @Given :type content:
    */
   public function createNodes($type, TableNode $nodesTable) {
     foreach ($nodesTable->getHash() as $nodeHash) {

@@ -16,6 +16,8 @@ use Drupal\DrupalExtension\Hook\Scope\BeforeLanguageEnableScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeNodeCreateScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeUserCreateScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeTermCreateScope;
+use Behat\Behat\Hook\Scope\BeforeScenarioScope;
+use Behat\Behat\Hook\Scope\AfterScenarioScope;
 
 
 /**
@@ -45,11 +47,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   protected $dispatcher;
 
   /**
-   * Keep track of nodes so they can be cleaned up.
+   * Keep track of nodes so they can be cleaned up.  Note that this has
+   * been converted to a static variable, reflecting the fact that nodes
+   * can be created by multiple contexts.
    *
    * @var array
    */
-  protected $nodes = array();
+  protected static $nodes = array();
 
   /**
    * Current authenticated user.
@@ -58,35 +62,74 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @var stdClass|bool
    */
-  public $user = FALSE;
+  public static $user = FALSE;
 
   /**
    * Keep track of all users that are created so they can easily be removed.
    *
    * @var array
    */
-  protected $users = array();
+  protected static $users = array();
 
   /**
    * Keep track of all terms that are created so they can easily be removed.
    *
    * @var array
    */
-  protected $terms = array();
+  protected static $terms = array();
 
   /**
    * Keep track of any roles that are created so they can easily be removed.
    *
    * @var array
    */
-  protected $roles = array();
+  protected static $roles = array();
+  /**
+   * Keep track of any other contexts run during this scenario.  If they do
+   * not require shared state, I can use them.
+   * @var array
+   */
+  protected static $contexts = array();
 
   /**
    * Keep track of any languages that are created so they can easily be removed.
    *
    * @var array
    */
-  protected $languages = array();
+  protected static $languages = array();
+
+  /**
+   *
+   * Invoking this hook to gather references to other contexts established
+   * during runtime.  We use this approach so we can ask questions of
+   * other contexts that do not require our shared state.
+   * See https://gist.github.com/stof/930e968829cd66751a3a
+   */
+  public function beforeScenario(BeforeScenarioScope $scope)
+  {
+    $environment = $scope->getEnvironment();
+    $settings    = $environment->getSuite()->getSettings();
+    foreach ($settings['contexts'] as $context_name) {
+      self::$contexts[$context_name] = $environment->getContext($context_name);
+    }
+    // $this->subContexts.
+  }
+
+  /**
+   * Invoked after Behat scenario completion.
+   *
+   * See also:
+   * https://github.com/Behat/docs/pull/65.
+   *
+   * @param AfterScenaroScope $scope
+   *   The afterscenario scope.
+   */
+  public function afterScenario(AfterScenaroScope $scope)
+  {
+    //make sure references are removed to allow cleanup.  NOt sure if this
+    //is strictly necessary, but better safe than sorry.
+    self::$contexts = array();
+  }
 
   /**
    * {@inheritDoc}
@@ -166,10 +209,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function cleanNodes() {
     // Remove any nodes that were created.
-    foreach ($this->nodes as $node) {
+    foreach (self::$nodes as $node) {
       $this->getDriver()->nodeDelete($node);
     }
-    $this->nodes = array();
+    self::$nodes = array();
   }
 
   /**
@@ -179,12 +222,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function cleanUsers() {
     // Remove any users that were created.
-    if (!empty($this->users)) {
-      foreach ($this->users as $user) {
+    if (!empty(self::$users)) {
+      foreach (self::$users as $user) {
         $this->getDriver()->userDelete($user);
       }
       $this->getDriver()->processBatch();
-      $this->users = array();
+      self::$users = array();
     }
   }
 
@@ -195,10 +238,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function cleanTerms() {
     // Remove any terms that were created.
-    foreach ($this->terms as $term) {
+    foreach (self::$terms as $term) {
       $this->getDriver()->termDelete($term);
     }
-    $this->terms = array();
+    self::$terms = array();
   }
 
   /**
@@ -208,10 +251,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function cleanRoles() {
     // Remove any roles that were created.
-    foreach ($this->roles as $rid) {
+    foreach (self::$roles as $rid) {
       $this->getDriver()->roleDelete($rid);
     }
-    $this->roles = array();
+    self::$roles = array();
   }
 
   /**
@@ -221,10 +264,19 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function cleanLanguages() {
     // Delete any languages that were created.
-    foreach ($this->languages as $language) {
+    foreach (self::$languages as $language) {
       $this->getDriver()->languageDelete($language);
-      unset($this->languages[$language->langcode]);
+      unset(self::$languages[$language->langcode]);
     }
+  }
+
+  /**
+   * Clear static caches.
+   *
+   * @AfterScenario @api
+   */
+  public function clearStaticCaches() {
+    $this->getDriver()->clearStaticCaches();
   }
 
   /**
@@ -260,7 +312,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $this->parseEntityFields('node', $node);
     $saved = $this->getDriver()->createNode($node);
     $this->dispatchHooks('AfterNodeCreateScope', $saved);
-    $this->nodes[] = $saved;
+    self::$nodes[] = $saved;
     return $saved;
   }
 
@@ -269,20 +321,76 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *    A, B, C
    *    A - B, C - D, E - F
    *
-   * @param $entity_type
-   * @param $entity
+   * @param string $entity_type
+   *   The entity type.
+   * @param \stdClass $entity
+   *   An object containing the entity properties and fields as properties.
    */
-  public function parseEntityFields($entity_type, $entity) {
-    foreach ($entity as $field_name => $value) {
+  public function parseEntityFields($entity_type, \stdClass $entity) {
+    $multicolumn_field = '';
+    $multicolumn_fields = array();
+
+    foreach ($entity as $field => $field_value) {
+      // Reset the multicolumn field if the field name does not contain a column.
+      if (strpos($field, ':') === FALSE) {
+        $multicolumn_field = '';
+      }
+      // Start tracking a new multicolumn field if the field name contains a ':'
+      // which is preceded by at least 1 character.
+      elseif (strpos($field, ':', 1) !== FALSE) {
+        list($multicolumn_field, $multicolumn_column) = explode(':', $field);
+      }
+      // If a field name starts with a ':' but we are not yet tracking a
+      // multicolumn field we don't know to which field this belongs.
+      elseif (empty($multicolumn_field)) {
+        throw new \Exception('Field name missing for ' . $field);
+      }
+      // Update the column name if the field name starts with a ':' and we are
+      // already tracking a multicolumn field.
+      else {
+        $multicolumn_column = substr($field, 1);
+      }
+
+      $is_multicolumn = $multicolumn_field && $multicolumn_column;
+      $field_name = $multicolumn_field ?: $field;
       if ($this->getDriver()->isField($entity_type, $field_name)) {
-        $values = explode(', ', $value);
-        foreach ($values as $key => $value) {
+        // Split up multiple values in multi-value fields.
+        $values = array();
+        foreach (explode(', ', $field_value) as $key => $value) {
+          $columns = $value;
+          // Split up field columns if the ' - ' separator is present.
           if (strstr($value, ' - ') !== FALSE) {
-            $values[$key] = explode(' - ', $value);
+            $columns = array();
+            foreach (explode(' - ', $value) as $column) {
+              // Check if it is an inline named column.
+              if (!$is_multicolumn && strpos($column, ': ', 1) !== FALSE) {
+                list ($key, $column) = explode(': ', $column);
+                $columns[$key] = $column;
+              }
+              else {
+                $columns[] = $column;
+              }
+            }
+          }
+          // Use the column name if we are tracking a multicolumn field.
+          if ($is_multicolumn) {
+            $multicolumn_fields[$multicolumn_field][$key][$multicolumn_column] = $columns;
+            unset($entity->$field);
+          }
+          else {
+            $values[] = $columns;
           }
         }
-        $entity->$field_name = $values;
+        // Replace regular fields inline in the entity after parsing.
+        if (!$is_multicolumn) {
+          $entity->$field_name = $values;
+        }
       }
+    }
+
+    // Add the multicolumn fields to the entity.
+    foreach ($multicolumn_fields as $field_name => $columns) {
+      $entity->$field_name = $columns;
     }
   }
 
@@ -297,7 +405,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $this->parseEntityFields('user', $user);
     $this->getDriver()->userCreate($user);
     $this->dispatchHooks('AfterUserCreateScope', $user);
-    $this->users[$user->name] = $this->user = $user;
+    self::$users[$user->name] = self::$user = $user;
     return $user;
   }
 
@@ -312,7 +420,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $this->parseEntityFields('taxonomy_term', $term);
     $saved = $this->getDriver()->createTerm($term);
     $this->dispatchHooks('AfterTermCreateScope', $saved);
-    $this->terms[] = $saved;
+    self::$terms[] = $saved;
     return $saved;
   }
 
@@ -331,9 +439,21 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $language = $this->getDriver()->languageCreate($language);
     if ($language) {
       $this->dispatchHooks('AfterLanguageCreateScope', $language);
-      $this->languages[$language->langcode] = $language;
+      self::$languages[$language->langcode] = $language;
     }
     return $language;
+  }
+  /**
+   * Returns the currently logged in user, or NULL, if no login action has
+   * yet happened
+   * @return object|NULL
+   *         The logged in user, or NULL if no user is currently logged in.
+   */
+  public function getCurrentUser(){
+    if (!$this->loggedIn()) {
+      return NULL;
+    }
+    return self::$user;
   }
 
   /**
@@ -345,14 +465,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       $this->logout();
     }
 
-    if (!$this->user) {
+    if (!self::$user) {
       throw new \Exception('Tried to login without a user.');
     }
 
     $this->getSession()->visit($this->locatePath('/user'));
     $element = $this->getSession()->getPage();
-    $element->fillField($this->getDrupalText('username_field'), $this->user->name);
-    $element->fillField($this->getDrupalText('password_field'), $this->user->pass);
+    $element->fillField($this->getDrupalText('username_field'), self::$user->name);
+    $element->fillField($this->getDrupalText('password_field'), self::$user->pass);
     $submit = $element->findButton($this->getDrupalText('log_in'));
     if (empty($submit)) {
       throw new \Exception(sprintf("No submit button at %s", $this->getSession()->getCurrentUrl()));
@@ -362,7 +482,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $submit->click();
 
     if (!$this->loggedIn()) {
-      throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", $this->user->name, $this->user->role));
+      throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", self::$user->name, self::$user->role));
     }
   }
 
@@ -399,7 +519,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   Returns TRUE if the current logged in user has this role (or roles).
    */
   public function loggedInWithRole($role) {
-    return $this->loggedIn() && $this->user && isset($this->user->role) && $this->user->role == $role;
+    return $this->loggedIn() && self::$user && isset(self::$user->role) && self::$user->role == $role;
   }
 
 }
