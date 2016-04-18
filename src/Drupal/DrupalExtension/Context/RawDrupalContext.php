@@ -145,6 +145,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     return $this->drupal;
   }
 
+
   /**
    * {@inheritDoc}
    */
@@ -423,7 +424,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     self::$terms[] = $saved;
     return $saved;
   }
-
+    /**
+   * Extracted from DrupalContext's assertLoggedInWithPermissions,
+   * this moves the functionality of creating a possibly shared role
+   * into the parent class.
+   * @param  string $permissions A comma-separated list of permissinos
+   * @return int              The role id of the newly created role.
+   */
+  public function roleCreate($permissions){
+    $rid = $this->getDriver()->roleCreate($permissions);
+    self::$roles []= $rid;
+    return $rid;
+  }
   /**
    * Creates a language.
    *
