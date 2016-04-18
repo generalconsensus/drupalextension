@@ -12,7 +12,31 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
  * Provides pre-built step definitions for interacting with Drupal.
  */
 class DrupalContext extends RawDrupalContext implements TranslatableContext {
-
+  /**
+   * Utility function for the common job (in this context) of creating
+   * a user
+   * @param  array  $values An array of key/value pairs that describe
+   *                        the values to be assigned to this user.
+   * @return $user         The newly created user.
+   */
+  protected function _createUser($values=array()){
+      //Assign defaults where possible.
+      $values = $values + array(
+        'name' => $this->getRandom()->name(8),
+        'pass' => $this->getRandom()->name(16)
+      );
+      $values['mail'] = "$values[name]@example.com";
+      $values = (object) $values;
+      return $this->userCreate($values);
+  }
+  protected function _createNode($values=array()){
+    //assign defaults where possible.
+    $values = $values + array(
+      'body' => $this->getRandom()->string(255)
+    );
+    $values = (object) $values;
+    return $this->nodeCreate($values);
+  }
   /**
    * Returns list of definition translation resources paths.
    *
@@ -43,14 +67,8 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
       // Create user (and project)
-      $user = (object) array(
-        'name' => $this->getRandom()->name(8),
-        'pass' => $this->getRandom()->name(16),
-        'role' => $role,
-      );
-      $user->mail = "{$user->name}@example.com";
 
-      $this->userCreate($user);
+      $user = $this->_createUser(array('role'=>$role));
 
       $roles = explode(',', $role);
       $roles = array_map('trim', $roles);
@@ -78,19 +96,13 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
       // Create user (and project)
-      $user = (object) array(
-        'name' => $this->getRandom()->name(8),
-        'pass' => $this->getRandom()->name(16),
-        'role' => $role,
+      $values = array(
+        'role'=>$role
       );
-      $user->mail = "{$user->name}@example.com";
-
-      // Assign fields to user before creation.
       foreach ($fields->getRowsHash() as $field => $value) {
-        $user->{$field} = $value;
+        $values[$field] = $value;
       }
-
-      $this->userCreate($user);
+      $user = $this->_createUser($values);
 
       $roles = explode(',', $role);
       $roles = array_map('trim', $roles);
@@ -111,18 +123,12 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
    */
   public function assertLoggedInWithPermissions($permissions) {
     // Create user.
-    $user = (object) array(
-      'name' => $this->getRandom()->name(8),
-      'pass' => $this->getRandom()->name(16),
-    );
-    $user->mail = "{$user->name}@example.com";
-    $this->userCreate($user);
+    $user = $this->_createUser();
 
     // Create and assign a temporary role with given permissions.
     $permissions = explode(',', $permissions);
-    $rid = $this->getDriver()->roleCreate($permissions);
+    $rid = $this->roleCreate($permissions);
     $this->getDriver()->userAddRole($user, $rid);
-    $this->roles[] = $rid;
 
     // Login.
     $this->login();
@@ -204,12 +210,11 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
    */
   public function createNode($type, $title) {
     // @todo make this easily extensible.
-    $node = (object) array(
+    $values = array(
       'title' => $title,
-      'type' => $type,
-      'body' => $this->getRandom()->string(255),
+      'type' => $type
     );
-    $saved = $this->nodeCreate($node);
+    $saved = $this->_createNode($values);
     // Set internal page on the new node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
   }
@@ -224,13 +229,12 @@ class DrupalContext extends RawDrupalContext implements TranslatableContext {
       throw new \Exception(sprintf('There is no current logged in user to create a node for.'));
     }
 
-    $node = (object) array(
+    $values = array(
       'title' => $title,
       'type' => $type,
-      'body' => $this->getRandom()->string(255),
       'uid' => $this->getCurrentUser()->uid,
     );
-    $saved = $this->nodeCreate($node);
+    $saved = $this->_createNode($node);
 
     // Set internal page on the new node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
@@ -246,9 +250,8 @@ c   * @Given :type content:
    */
   public function createNodes($type, TableNode $nodesTable) {
     foreach ($nodesTable->getHash() as $nodeHash) {
-      $node = (object) $nodeHash;
-      $node->type = $type;
-      $this->nodeCreate($node);
+      $nodehash['type'] = $type;
+      $this->_createNode($node);
     }
   }
 
@@ -263,14 +266,14 @@ c   * @Given :type content:
    * @Given I am viewing a/an :type( content):
    */
   public function assertViewingNode($type, TableNode $fields) {
-    $node = (object) array(
+    $values = array(
       'type' => $type,
     );
     foreach ($fields->getRowsHash() as $field => $value) {
-      $node->{$field} = $value;
+      $values[$field] = $value;
     }
 
-    $saved = $this->nodeCreate($node);
+    $saved = $this->_createNode($node);
 
     // Set internal browser on the node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
@@ -282,8 +285,7 @@ c   * @Given :type content:
    * @Then I should be able to edit a/an :type( content)
    */
   public function assertEditNodeOfType($type) {
-    $node = (object) array('type' => $type);
-    $saved = $this->nodeCreate($node);
+    $saved = $this->_createNode(array('type'=>$type));
 
     // Set internal browser on the node edit page.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid . '/edit'));
@@ -333,12 +335,7 @@ c   * @Given :type content:
         unset($userHash['roles']);
       }
 
-      $user = (object) $userHash;
-      // Set a password.
-      if (!isset($user->pass)) {
-        $user->pass = $this->getRandom()->name();
-      }
-      $this->userCreate($user);
+      $user = $this->_createUser($userhash);
 
       // Assign roles.
       foreach ($roles as $role) {
