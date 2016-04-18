@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ */
+
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
@@ -12,25 +16,33 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
  * Provides pre-built step definitions for interacting with Drupal.
  */
 final class DrupalContext extends RawDrupalContext implements TranslatableContext {
+
   /**
    * Utility function for the common job (in this context) of creating
-   * a user
-   * @param  array  $values An array of key/value pairs that describe
-   *                        the values to be assigned to this user.
+   * a user.
+   *
+   * @param array $valuesAn
+   *   array of key/value pairs that describe
+   *   An array of key/value pairs that describe
+   *                       the values to be assigned to this user.
+   *
    * @return $user         The newly created user.
    */
-  protected function _createUser($values=array()){
-      //Assign defaults where possible.
-      $values = $values + array(
+  protected function _createUser($values = array()) {
+    // Assign defaults where possible.
+    $values = $values + array(
         'name' => $this->getRandom()->name(8),
         'pass' => $this->getRandom()->name(16)
       );
-      $values['mail'] = "$values[name]@example.com";
-      $values = (object) $values;
-      return $this->userCreate($values);
+    $values['mail'] = "$values[name]@example.com";
+    $values = (object) $values;
+    return $this->userCreate($values);
   }
-  protected function _createNode($values=array()){
-    //assign defaults where possible.
+  /**
+   *
+   */
+  protected function _createNode($values = array()) {
+    // Assign defaults where possible.
     $values = $values + array(
       'body' => $this->getRandom()->string(255)
     );
@@ -66,9 +78,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   public function assertAuthenticatedByRole($role) {
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
-      // Create user (and project)
+      // Create user (and project).
 
-      $user = $this->_createUser(array('role'=>$role));
+      $user = $this->_createUser(array('role' => $role));
 
       $roles = explode(',', $role);
       $roles = array_map('trim', $roles);
@@ -88,16 +100,16 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates and authenticates a user with the given role(s) and given fields.
    * | field_user_name     | John  |
    * | field_user_surname  | Smith |
-   * | ...                 | ...   |
+   * | ...                 | ...   |.
    *
    * @Given I am logged in as a user with the :role role(s) and I have the following fields:
    */
   public function assertAuthenticatedByRoleWithGivenFields($role, TableNode $fields) {
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
-      // Create user (and project)
+      // Create user (and project).
       $values = array(
-        'role'=>$role
+        'role' => $role
       );
       foreach ($fields->getRowsHash() as $field => $value) {
         $values[$field] = $value;
@@ -176,6 +188,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * `admin/structure/types`.
    *
    * @Given I click :link in the :rowText row
+   *
    * @Then I (should )see the :link in the :rowText row
    */
   public function assertClickInTableRow($link, $rowText) {
@@ -244,9 +257,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates content of a given type provided in the form:
    * | title    | author     | status | created           |
    * | My title | Joe Editor | 1      | 2014-10-17 8:00am |
-   * | ...      | ...        | ...    | ...               |
+   * | ...      | ...        | ...    | ...               |.
    *
-c   * @Given :type content:
+   * C   * @Given :type content:
    */
   public function createNodes($type, TableNode $nodesTable) {
     foreach ($nodesTable->getHash() as $nodeHash) {
@@ -261,7 +274,7 @@ c   * @Given :type content:
    * | Field One | My field value |
    * | author    | Joe Editor     |
    * | status    | 1              |
-   * | ...       | ...            |
+   * | ...       | ...            |.
    *
    * @Given I am viewing a/an :type( content):
    */
@@ -285,7 +298,7 @@ c   * @Given :type content:
    * @Then I should be able to edit a/an :type( content)
    */
   public function assertEditNodeOfType($type) {
-    $saved = $this->_createNode(array('type'=>$type));
+    $saved = $this->_createNode(array('type' => $type));
 
     // Set internal browser on the node edit page.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid . '/edit'));
@@ -385,12 +398,13 @@ c   * @Given :type content:
    *
    * @Then (I )break
    */
-    public function iPutABreakpoint()
-    {
-      fwrite(STDOUT, "\033[s \033[93m[Breakpoint] Press \033[1;93m[RETURN]\033[0;93m to continue...\033[0m");
-      while (fgets(STDIN, 1024) == '') {}
-      fwrite(STDOUT, "\033[u");
-      return;
+  public function iPutABreakpoint() {
+
+    fwrite(STDOUT, "\033[s \033[93m[Breakpoint] Press \033[1;93m[RETURN]\033[0;93m to continue...\033[0m");
+    while (fgets(STDIN, 1024) == '') {
     }
+    fwrite(STDOUT, "\033[u");
+    return;
+  }
 
 }
