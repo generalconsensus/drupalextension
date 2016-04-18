@@ -11,7 +11,7 @@ use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 /**
  * Provides pre-built step definitions for interacting with Drupal.
  */
-class DrupalContext extends RawDrupalContext implements TranslatableContext {
+final class DrupalContext extends RawDrupalContext implements TranslatableContext {
   /**
    * Utility function for the common job (in this context) of creating
    * a user
