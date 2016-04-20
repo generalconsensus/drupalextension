@@ -11,44 +11,11 @@ use Behat\Mink\Element\Element;
 
 use Behat\Gherkin\Node\TableNode;
 
-use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 /**
  * Provides pre-built step definitions for interacting with Drupal.
  */
 final class DrupalContext extends RawDrupalContext implements TranslatableContext {
 
-  /**
-   * Utility function for the common job (in this context) of creating
-   * a user.
-   *
-   * @param array $valuesAn
-   *   array of key/value pairs that describe
-   *   An array of key/value pairs that describe
-   *                       the values to be assigned to this user.
-   *
-   * @return $user         The newly created user.
-   */
-  protected function _createUser($values = array()) {
-    // Assign defaults where possible.
-    $values = $values + array(
-        'name' => $this->getRandom()->name(8),
-        'pass' => $this->getRandom()->name(16)
-      );
-    $values['mail'] = "$values[name]@example.com";
-    $values = (object) $values;
-    return $this->userCreate($values);
-  }
-  /**
-   *
-   */
-  protected function _createNode($values = array()) {
-    // Assign defaults where possible.
-    $values = $values + array(
-      'body' => $this->getRandom()->string(255)
-    );
-    $values = (object) $values;
-    return $this->nodeCreate($values);
-  }
   /**
    * Returns list of definition translation resources paths.
    *
@@ -259,12 +226,12 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * | My title | Joe Editor | 1      | 2014-10-17 8:00am |
    * | ...      | ...        | ...    | ...               |.
    *
-   * C   * @Given :type content:
+   * @Given :type content:
    */
   public function createNodes($type, TableNode $nodesTable) {
     foreach ($nodesTable->getHash() as $nodeHash) {
-      $nodehash['type'] = $type;
-      $this->_createNode($node);
+      $nodeHash['type'] = $type;
+      $this->_createNode($nodeHash);
     }
   }
 
