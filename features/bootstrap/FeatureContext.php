@@ -2,6 +2,7 @@
 
 use Behat\Behat\Context\Context;
 use Behat\Gherkin\Node\PyStringNode;
+use Behat\Gherkin\Node\TableNode;
 use Drupal\DrupalExtension\Hook\Scope\EntityScope;
 use Symfony\Component\Process\PhpExecutableFinder;
 use Symfony\Component\Process\Process;
@@ -95,6 +96,72 @@ class FeatureContext implements Context {
     if (!$user = $scope->getEntity()) {
       throw new \Exception('Failed to find a user in @afterUserCreate hook.');
     }
+  }
+
+  /**
+   * Transforms long address field columns into shorter aliases.
+   *
+   * This is used in field_handlers.feature for testing if lengthy field:column
+   * combinations can be shortened to more human friendly aliases.
+   *
+   * @Transform table:name,mail,street,city,postcode,country
+   */
+  public function castUsersTable(TableNode $user_table) {
+    $aliases = array(
+      'country' => 'field_post_address:country',
+      'city' => 'field_post_address:locality',
+      'street' => 'field_post_address:thoroughfare',
+      'postcode' => 'field_post_address:postal_code',
+    );
+
+    // The first row of the table contains the field names.
+    $table = $user_table->getTable();
+    reset($table);
+    $first_row = key($table);
+
+    // Replace the aliased field names with the actual ones.
+    foreach ($table[$first_row] as $key => $alias) {
+      if (array_key_exists($alias, $aliases)) {
+        $table[$first_row][$key] = $aliases[$alias];
+      }
+    }
+
+    return new TableNode($table);
+  }
+
+  /**
+   * Transforms human readable field names into machine names.
+   *
+   * This is used in field_handlers.feature for testing if human readable names
+   * can be used instead of machine names in tests.
+   *
+   * @param TableNode $post_table
+   *   The original table.
+   *
+   * @return TableNode
+   *   The transformed table.
+   *
+   * @Transform rowtable:title,body,reference,date,links,select,address
+   */
+  public function transformPostContentTable(TableNode $post_table) {
+    $aliases = array(
+      'reference' => 'field_post_reference',
+      'date' => 'field_post_date',
+      'links' => 'field_post_links',
+      'select' => 'field_post_select',
+      'address' => 'field_post_address',
+    );
+
+    $table = $post_table->getTable();
+    array_walk($table, function (&$row) use ($aliases) {
+      // The first column of the row contains the field names. Replace the
+      // human readable field name with the machine name if it exists.
+      if (array_key_exists($row[0], $aliases)) {
+        $row[0] = $aliases[$row[0]];
+      }
+    });
+
+    return new TableNode($table);
   }
 
   /**

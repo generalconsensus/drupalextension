@@ -1,12 +1,9 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\MinkExtension\Context\RawMinkContext;
+use Behat\Mink\Exception\DriverException;
 use Behat\Testwork\Hook\HookDispatcher;
 
 use Drupal\DrupalDriverManager;
@@ -347,10 +344,54 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
+   * Returns a specific css selector.
+   *
+   * @param $name
+   *   string CSS selector name
+   */
+  public function getDrupalSelector($name) {
+    $text = $this->getDrupalParameter('selectors');
+    if (!isset($text[$name])) {
+      throw new \Exception(sprintf('No such selector configured: %s', $name));
+    }
+    return $text[$name];
+  }
+
+  /**
    * Get active Drupal Driver.
+   *
+   * @return \Drupal\Driver\DrupalDriver
    */
   public function getDriver($name = NULL) {
     return $this->getDrupal()->getDriver($name);
+  }
+
+  /**
+   * Massage node values to match the expectations on different Drupal versions.
+   *
+   * @beforeNodeCreate
+   */
+  public function alterNodeParameters(BeforeNodeCreateScope $scope) {
+    $node = $scope->getEntity();
+
+    // Get the Drupal API version if available. This is not available when
+    // using e.g. the BlackBoxDriver or DrushDriver.
+    $api_version = NULL;
+    $driver = $scope->getContext()->getDrupal()->getDriver();
+    if ($driver instanceof \Drupal\Driver\DrupalDriver) {
+      $api_version = $scope->getContext()->getDrupal()->getDriver()->version;
+    }
+
+    // On Drupal 8 the timestamps should be in UNIX time.
+    switch ($api_version) {
+      case 8:
+        foreach (array('changed', 'created', 'revision_timestamp') as $field) {
+          if (!empty($node->$field) && !is_numeric($node->$field)) {
+            $node->$field = strtotime($node->$field);
+          }
+        }
+      break;
+    }
   }
 
   /**
@@ -413,7 +454,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $multicolumn_field = '';
     $multicolumn_fields = array();
 
-    foreach ($entity as $field => $field_value) {
+    foreach (clone $entity as $field => $field_value) {
       // Reset the multicolumn field if the field name does not contain a column.
       if (strpos($field, ':') === FALSE) {
         $multicolumn_field = '';
@@ -650,6 +691,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $submit->click();
 
     if (!$this->loggedIn()) {
+	  /*
+      if (isset($this->user->role)) {
+        throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s' with role '%s'", $this->user->name, $this->user->role));
+      }
+      else {
+        throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s'", $this->user->name));
+      }
+	  */
       throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", self::$users->current->name, self::$users->current->role));
     }
   }
@@ -669,6 +718,26 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function loggedIn() {
     $session = $this->getSession();
+    $page = $session->getPage();
+
+    // Look for a css selector to determine if a user is logged in.
+    // Default is the logged-in class on the body tag.
+    // Which should work with almost any theme.
+    try {
+      if ($page->has('css', $this->getDrupalSelector('logged_in_selector'))) {
+        return TRUE;
+      }
+    } catch (DriverException $e) {
+      // This test may fail if the driver did not load any site yet.
+    }
+
+    // Some themes do not add that class to the body, so lets check if the
+    // login form is displayed on /user/login.
+    $session->visit($this->locatePath('/user/login'));
+    if (!$page->has('css', $this->getDrupalSelector('login_form_selector'))) {
+      return TRUE;
+    }
+
     $session->visit($this->locatePath('/'));
 
     // If a logout link is found, we are logged in. While not perfect, this is
