@@ -1,4 +1,11 @@
-# Behat Drupal Extension
+# Behat Drupal Extension (fork)
+
+This fork of the [Behat Drupal Extension](https://github.com/jhedstrom/drupalextension) is constructed to add a more advanced caching capability to the original, and to allow for resources to be shared and contexts to interact within a Behat 3 environment (which no longer allows SubContexts).
+
+This is development-only software.  Use at your own risk.
+
+*Original README follows:*
+
 
 The Drupal Extension is an integration layer between [Behat](http://behat.org),
 [Mink Extension](https://github.com/Behat/MinkExtension), and Drupal. It
