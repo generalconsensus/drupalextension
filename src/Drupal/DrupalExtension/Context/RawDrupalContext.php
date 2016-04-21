@@ -648,23 +648,36 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     return reset($results);
   }
   /**
-   * Assigns the user $name to be the currently logged in user.  This will log
-   * $user in as the current user as a side-effect.  Note:
+   * Assigns the user $name to be the currently logged in user.  Note:
    *   This user must have been created in a prior step.
    *
-   * @param string $name
-   *   The name assigned to the user.
+   * @param string/object $name
+   *   The name assigned to the user, or the full drupal user object.
    */
-  public function setNamedUser($name) {
-    $user = $this->getNamedUser($name);
+  protected function setLoggedInUser($user) {
+    if(is_string($name)){
+      $user = $this->getNamedUser($user);
+    }
     if (empty($user)) {
       throw new \Exception(sprintf('No user with %s name is registered with the driver.', $name));
     }
     // Change internal current user.
     self::$users->current = $user;
-    $this->login();
   }
-
+  /**
+   * Returns the currently logged in user
+   * @return object The currently logged in user, in the format applicable to
+   * whatever drupal version is currently being run.
+   */
+  protected function getLoggedInUser(){
+    if ($this->loggedIn()) {
+      return FALSE;
+    }
+    if(empty(self::$users->current)){
+      throw new \Exception("User is logged in, but user was not registered with the context");
+    }
+    return self::$users->current;
+  }
   /**
    * Log-in the current user.
    */
@@ -691,14 +704,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $submit->click();
 
     if (!$this->loggedIn()) {
-	  /*
+    /*
       if (isset($this->user->role)) {
         throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s' with role '%s'", $this->user->name, $this->user->role));
       }
       else {
         throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s'", $this->user->name));
       }
-	  */
+    */
       throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", self::$users->current->name, self::$users->current->role));
     }
   }
