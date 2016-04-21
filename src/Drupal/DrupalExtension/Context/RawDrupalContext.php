@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ */
+
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\MinkExtension\Context\RawMinkContext;
@@ -123,17 +127,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function __construct() {
 
   }
-  /**
-   * @BeforeScenario
-   * Invoking this hook to gather references to other contexts established
-   * during runtime.  We use this approach so we can ask questions of
-   * other contexts that do not require our shared state.
-   * See https://gist.github.com/stof/930e968829cd66751a3a.
-   */
-  public function gatherContexts($scope) {
-
-    $this->user =& self::$users->current;
-  }
 
   /**
    * @BeforeFeature
@@ -191,7 +184,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function beforeScenario(\Behat\Behat\Hook\Scope\BeforeScenarioScope $scope) {
     if (!self::$scenario_static_initialized) {
-      //print "BeforeScenario.  Constructing static caches...\n";
+      // Print "BeforeScenario.  Constructing static caches...\n";
       // Print "Before scenario.  Adding contexts.\n";.
       $environment = $scope->getEnvironment();
       $settings    = $environment->getSuite()->getSettings();
@@ -201,16 +194,20 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
         self::$contexts->add($context, array('key' => $context_name));
       }
       self::$scenario_static_initialized = TRUE;
+      $this->user =& self::$users->current;
     }
   }
   /**
    * @AfterScenario
    * Cleans all the cache objects.  This has the side effect of cleaning
    * any cached objects from the database.
+   *
+   * TODO: This approach assumes all context scenarios end at the same time.
+   * Revisit to ensure this is a valid assumption.
    */
   public function afterScenario() {
     if (self::$scenario_static_initialized) {
-      //print "Clearing static caches...\n";
+      // Print "Clearing static caches...\n";.
       self::$users->clean($this);
       self::$nodes->clean($this);
       self::$languages->clean($this);
@@ -218,6 +215,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$roles->clean($this);
       self::$contexts->clean($this);
       self::$scenario_static_initialized = FALSE;
+      $this->user = NULL;
     }
   }
   /**
@@ -231,9 +229,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   protected function _createNode($values = array()) {
     $cached = self::$nodes->find($values);
-    //var_dump($values);
+    // var_dump($values);
     if (!empty($cached)) {
-      //print "Cached node found\n";
+      // Print "Cached node found\n";.
       return $cached;
     }
 
@@ -390,7 +388,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
             $node->$field = strtotime($node->$field);
           }
         }
-      break;
+        break;
     }
   }
 
@@ -654,8 +652,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @param string/object $name
    *   The name assigned to the user, or the full drupal user object.
    */
-  protected function setLoggedInUser($user) {
-    if(is_string($name)){
+  private function setLoggedInUser($user) {
+    if (is_string($name)) {
       $user = $this->getNamedUser($user);
     }
     if (empty($user)) {
@@ -665,36 +663,36 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     self::$users->current = $user;
   }
   /**
-   * Returns the currently logged in user
-   * @return object The currently logged in user, in the format applicable to
-   * whatever drupal version is currently being run.
+   * Returns the currently logged in user.
+   *
+   * @return object|NULL The currently logged in user, in the format applicable to
+   * whatever drupal version is currently being run, or NULL if nobody is currently
+   * logged in.
    */
-  protected function getLoggedInUser(){
+  public function getLoggedInUser() {
     if ($this->loggedIn()) {
-      return FALSE;
+      return NULL;
     }
-    if(empty(self::$users->current)){
+    if (empty(self::$users->current)) {
       throw new \Exception("User is logged in, but user was not registered with the context");
     }
     return self::$users->current;
   }
   /**
    * Log-in the current user.
+   * @param  object $user The user to log in.
    */
-  public function login() {
+  public function login($user) {
+
     // Check if logged in.
     if ($this->loggedIn()) {
       $this->logout();
     }
 
-    if (empty(self::$users->current)) {
-      throw new \Exception('Tried to login without a current user.');
-    }
-
     $this->getSession()->visit($this->locatePath('/user'));
     $element = $this->getSession()->getPage();
-    $element->fillField($this->getDrupalText('username_field'), self::$users->current->name);
-    $element->fillField($this->getDrupalText('password_field'), self::$users->current->pass);
+    $element->fillField($this->getDrupalText('username_field'), $user->name);
+    $element->fillField($this->getDrupalText('password_field'), $user->pass);
     $submit = $element->findButton($this->getDrupalText('log_in'));
     if (empty($submit)) {
       throw new \Exception(sprintf("No submit button at %s", $this->getSession()->getCurrentUrl()));
@@ -704,16 +702,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $submit->click();
 
     if (!$this->loggedIn()) {
-    /*
+      /*
       if (isset($this->user->role)) {
-        throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s' with role '%s'", $this->user->name, $this->user->role));
+      throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s' with role '%s'", $this->user->name, $this->user->role));
       }
       else {
-        throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s'", $this->user->name));
+      throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s'", $this->user->name));
       }
-    */
+       */
       throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", self::$users->current->name, self::$users->current->role));
     }
+
+    $this->setLoggedInUser($user);
   }
 
   /**
@@ -721,6 +721,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function logout() {
     $this->getSession()->visit($this->locatePath('/user/logout'));
+    self::$users->current = NULL;
   }
 
   /**
@@ -740,7 +741,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       if ($page->has('css', $this->getDrupalSelector('logged_in_selector'))) {
         return TRUE;
       }
-    } catch (DriverException $e) {
+    }
+    catch (DriverException $e) {
       // This test may fail if the driver did not load any site yet.
     }
 
@@ -758,10 +760,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $element = $session->getPage();
     $result = $element->findLink($this->getDrupalText('log_out'));
     if ($result) {
-      // Add assertion here to detect a violation of the 'current user'
-      // contract as soon as possible.
       if (empty(self::$users->current)) {
-        throw new \Exception("Invalid state - current user is empty");
+        throw new \Exception("Invalid state - logged in, but current user is empty");
       }
     }
     return $result;
@@ -778,7 +778,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function loggedInWithRole($role) {
     // TODO: Refactor to allow for multiple roles.
-    return $this->loggedIn() && isset(self::$users->current->role) && self::$users->current->role == $role;
+    if (!$this->loggedIn()) {
+      return FALSE;
+    }
+    if (!isset(self::$users->current->role)) {
+      return FALSE;
+    }
+    return self::$users->current->role == $role;
   }
 
   /**

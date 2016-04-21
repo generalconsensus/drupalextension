@@ -42,20 +42,10 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
       // Create user (and project).
-
-      $user = $this->_createUser(array('role' => $role));
-
       $roles = explode(',', $role);
       $roles = array_map('trim', $roles);
-      foreach ($roles as $role) {
-        if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
-          // Only add roles other than 'authenticated user'.
-          $this->getDriver()->userAddRole($user, $role);
-        }
-      }
-
-      // Login.
-      $this->login();
+      $user = $this->_createUser(array('roles' => $roles));
+      $this->login($user);
     }
   }
 
@@ -71,25 +61,18 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
       // Create user (and project).
+      $roles = explode(',', $role);
+      $roles = array_map('trim', $roles);
       $values = array(
-        'role' => $role
+        'roles' => $roles
       );
       foreach ($fields->getRowsHash() as $field => $value) {
         $values[$field] = $value;
       }
       $user = $this->_createUser($values);
 
-      $roles = explode(',', $role);
-      $roles = array_map('trim', $roles);
-      foreach ($roles as $role) {
-        if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
-          // Only add roles other than 'authenticated user'.
-          $this->getDriver()->userAddRole($user, $role);
-        }
-      }
-
       // Login.
-      $this->login();
+      $this->login($user);
     }
   }
 
@@ -106,7 +89,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $this->getDriver()->userAddRole($user, $rid);
 
     // Login.
-    $this->login();
+    $this->login($user);
   }
 
   /**
