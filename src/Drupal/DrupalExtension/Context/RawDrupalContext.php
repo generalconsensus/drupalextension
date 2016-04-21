@@ -653,7 +653,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The name assigned to the user, or the full drupal user object.
    */
   private function setLoggedInUser($user) {
-    if (is_string($name)) {
+    if (is_string($user)) {
       $user = $this->getNamedUser($user);
     }
     if (empty($user)) {
