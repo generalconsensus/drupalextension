@@ -121,12 +121,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @var boolean
    */
   protected static $scenario_static_initialized = FALSE;
-  /**
-   *
-   */
-  public function __construct() {
 
-  }
 
   /**
    * @BeforeFeature
@@ -646,23 +641,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     return reset($results);
   }
   /**
-   * Assigns the user $name to be the currently logged in user.  Note:
-   *   This user must have been created in a prior step.
-   *
-   * @param string/object $name
-   *   The name assigned to the user, or the full drupal user object.
-   */
-  private function setLoggedInUser($user) {
-    if (is_string($user)) {
-      $user = $this->getNamedUser($user);
-    }
-    if (empty($user)) {
-      throw new \Exception(sprintf('No user with %s name is registered with the driver.', $name));
-    }
-    // Change internal current user.
-    self::$users->current = $user;
-  }
-  /**
    * Returns the currently logged in user.
    *
    * @return object|NULL The currently logged in user, in the format applicable to
@@ -678,12 +656,16 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return self::$users->current;
   }
+
+
   /**
    * Log-in the current user.
    * @param  object $user The user to log in.
    */
   public function login($user) {
-
+    if(!is_object($user) || !isset($user->name) || !isset($user->pass)){
+      throw new \Exception("Invalid user argument passed to ".get_class($this)."::".__FUNCTION__);
+    }
     // Check if logged in.
     if ($this->loggedIn()) {
       $this->logout();
@@ -713,7 +695,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", self::$users->current->name, self::$users->current->role));
     }
 
-    $this->setLoggedInUser($user);
+    self::$users->current = $user;
   }
 
   /**
