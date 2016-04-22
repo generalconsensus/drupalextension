@@ -21,8 +21,6 @@ use Drupal\DrupalExtension\Hook\Scope\BeforeLanguageEnableScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeNodeCreateScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeUserCreateScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeTermCreateScope;
-use Drupal\DrupalExtension\Hook\Scope\BeforeScenarioScope;
-use Drupal\DrupalExtension\Hook\Scope\AfterScenarioScope;
 use Drupal\DrupalExtension\Context\Cache as ExtensionCache;
 
 
@@ -703,7 +701,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function logout() {
     $this->getSession()->visit($this->locatePath('/user/logout'));
-    self::$users->current = NULL;
+    self::$users->current = FALSE;
   }
 
   /**
