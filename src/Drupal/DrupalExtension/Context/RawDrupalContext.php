@@ -132,6 +132,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public static function beforeFeature(\Behat\Behat\Hook\Scope\BeforeFeatureScope $scope) {
     if (!self::$feature_static_initialized) {
+      //print "Initializing static caches\n";
       self::$users = new ExtensionCache\UserCache();
       self::$users->addIndices('roles', 'name');
       self::$nodes = new ExtensionCache\NodeCache();
@@ -155,6 +156,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public static function afterFeature(\Behat\Behat\Hook\Scope\AfterFeatureScope $scope) {
     if (self::$feature_static_initialized) {
+      //print "Destroying static caches\n";
       self::$users = NULL;
       self::$nodes = NULL;
       self::$languages = NULL;
@@ -177,12 +179,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function beforeScenario(\Behat\Behat\Hook\Scope\BeforeScenarioScope $scope) {
     if (!self::$scenario_static_initialized) {
-      // Print "BeforeScenario.  Constructing static caches...\n";
+      //print "BeforeScenario.  Constructing context caches...\n";
       // Print "Before scenario.  Adding contexts.\n";.
       $environment = $scope->getEnvironment();
       $settings    = $environment->getSuite()->getSettings();
       foreach ($settings['contexts'] as $context_name) {
-        // Print "Adding $context_name\n";.
+        //print "Adding $context_name\n";
         $context = $environment->getContext($context_name);
         self::$contexts->add($context, array('key' => $context_name));
       }
@@ -198,9 +200,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * TODO: This approach assumes all context scenarios end at the same time.
    * Revisit to ensure this is a valid assumption.
    */
-  public function afterScenario() {
+  public function afterScenario(\Behat\Behat\Hook\Scope\AfterScenarioScope $scope) {
     if (self::$scenario_static_initialized) {
-      // Print "Clearing static caches...\n";.
+      //print "Clearing static caches...\n";
       self::$users->clean($this);
       self::$nodes->clean($this);
       self::$languages->clean($this);
