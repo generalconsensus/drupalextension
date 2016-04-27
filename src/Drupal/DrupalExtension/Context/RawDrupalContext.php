@@ -132,7 +132,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public static function beforeFeature(\Behat\Behat\Hook\Scope\BeforeFeatureScope $scope) {
     if (!self::$feature_static_initialized) {
-      //print "Initializing static caches\n";
+      // Print "Initializing static caches\n";.
       self::$users = new ExtensionCache\UserCache();
       self::$users->addIndices('roles', 'name');
       self::$nodes = new ExtensionCache\NodeCache();
@@ -156,7 +156,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public static function afterFeature(\Behat\Behat\Hook\Scope\AfterFeatureScope $scope) {
     if (self::$feature_static_initialized) {
-      //print "Destroying static caches\n";
+      // Print "Destroying static caches\n";.
       self::$users = NULL;
       self::$nodes = NULL;
       self::$languages = NULL;
@@ -179,12 +179,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function beforeScenario(\Behat\Behat\Hook\Scope\BeforeScenarioScope $scope) {
     if (!self::$scenario_static_initialized) {
-      //print "BeforeScenario.  Constructing context caches...\n";
+      // Print "BeforeScenario.  Constructing context caches...\n";
       // Print "Before scenario.  Adding contexts.\n";.
       $environment = $scope->getEnvironment();
       $settings    = $environment->getSuite()->getSettings();
       foreach ($settings['contexts'] as $context_name) {
-        //print "Adding $context_name\n";
+        // Print "Adding $context_name\n";.
         $context = $environment->getContext($context_name);
         self::$contexts->add($context, array('key' => $context_name));
       }
@@ -202,7 +202,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function afterScenario(\Behat\Behat\Hook\Scope\AfterScenarioScope $scope) {
     if (self::$scenario_static_initialized) {
-      //print "Clearing static caches...\n";
+      // Print "Clearing static caches...\n";.
       self::$users->clean($this);
       self::$nodes->clean($this);
       self::$languages->clean($this);
@@ -257,8 +257,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!empty($cached)) {
       return $cached;
     }
-    // Create a serializable index from the unique values only.
-    $values_hash = serialize($values);
+
     // Assign defaults where possible.
     $values = $values + array(
         'name' => $this->getDriver()->getRandom()->name(8),
@@ -473,7 +472,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       if ($this->getDriver()->isField($entity_type, $field_name)) {
         // Split up multiple values in multi-value fields.
         $values = array();
-        foreach (explode(', ', $field_value) as $key => $value) {
+        foreach (explode(',', $field_value) as $key => $value) {
+          $value = trim($value);
           $columns = $value;
           // Split up field columns if the ' - ' separator is present.
           if (strstr($value, ' - ') !== FALSE) {
@@ -660,11 +660,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
   /**
    * Log-in the current user.
-   * @param  object $user The user to log in.
+   *
+   * @param object $user
+   *   The user to log in.
    */
   public function login($user) {
-    if(!is_object($user) || !isset($user->name) || !isset($user->pass)){
-      throw new \Exception("Invalid user argument passed to ".get_class($this)."::".__FUNCTION__);
+    if (!is_object($user) || !isset($user->name) || !isset($user->pass)) {
+      throw new \Exception("Invalid user argument passed to " . get_class($this) . "::" . __FUNCTION__);
     }
     // Check if logged in.
     if ($this->loggedIn()) {
