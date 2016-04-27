@@ -1,5 +1,9 @@
 <?php
 
+/**
+ * @file
+ */
+
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
@@ -193,7 +197,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       'type' => $type,
       'uid' => $this->getCurrentUser()->uid,
     );
-    $saved = $this->_createNode($node);
+    $saved = $this->_createNode($values);
 
     // Set internal page on the new node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
@@ -236,6 +240,26 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
 
     // Set internal browser on the node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
+  }
+
+    /**
+   * Creates user of the given type, provided in the form:
+   * | name      | Example user     |
+   * | mail      | user@example.com |
+   * | status    | 1                |
+   * | ...       | ...              |.
+   * Assigns the as as the 'working' user
+   *
+   * @When working with the user:
+   */
+  public function whenWorkingWithTheUser(TableNode $fields) {
+    $values = array();
+    foreach ($fields->getRowsHash() as $field => $value) {
+      $values[$field] = $value;
+    }
+    $saved = $this->_createUser($values);
+    self::$users->setWorking($saved);
+    return $saved;
   }
 
   /**
