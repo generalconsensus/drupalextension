@@ -258,7 +258,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       $values[$field] = $value;
     }
     $saved = $this->_createUser($values);
-    self::$users->setWorking($saved);
     return $saved;
   }
 
