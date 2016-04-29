@@ -58,34 +58,41 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @var stdClass|bool
    */
   public $user = FALSE;
-
+  /**
+   * A cache object that can store a globally unique alias to any object in
+   * any of the other caches.  This cache stores the primary index of the
+   * object in the other cache (and the cache name) rather than the object itself.
+   *
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
+   */
+  protected static $aliases = NULL;
   /**
    * Keep track of nodes so they can be cleaned up.  Note that this has
    * been converted to a static variable, reflecting the fact that nodes
    * can be created by multiple contexts.
    *
-   * @var array
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $nodes = NULL;
 
   /**
    * Keep track of all users that are created so they can easily be removed.
    *
-   * @var array
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $users = NULL;
 
   /**
    * Keep track of all terms that are created so they can easily be removed.
    *
-   * @var array
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $terms = NULL;
 
   /**
    * Keep track of any roles that are created so they can easily be removed.
    *
-   * @var array
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $roles = NULL;
 
@@ -94,14 +101,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * not require shared state, I can use them.  This *may* need to be in
    * static context, so as to be available to the AfterFeature hook.
    *
-   * @var array
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $contexts = NULL;
 
   /**
    * Keep track of any languages that are created so they can easily be removed.
    *
-   * @var array
+   * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $languages = array();
 
@@ -141,6 +148,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$terms = new ExtensionCache\TermCache();
       self::$roles = new ExtensionCache\RoleCache();
       self::$contexts = new ExtensionCache\ContextCache();
+      self::$aliases = new ExtensionCache\AliasCache();
       self::$feature_static_initialized = TRUE;
     }
   }
@@ -163,6 +171,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$terms = NULL;
       self::$roles = NULL;
       self::$contexts = NULL;
+      self::$aliases = NULL;
       self::$feature_static_initialized = FALSE;
     }
 
@@ -189,7 +198,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
         self::$contexts->add($context, array('key' => $context_name));
       }
       self::$scenario_static_initialized = TRUE;
-      $this->user =& self::$users->current;
     }
   }
   /**
@@ -209,9 +217,55 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$terms->clean($this);
       self::$roles->clean($this);
       self::$contexts->clean($this);
+      self::$aliases->clean($this);
       self::$scenario_static_initialized = FALSE;
-      $this->user = NULL;
     }
+  }
+  /**
+   * Converts alias values passed in from a feature into the value of the object and field the alias references.
+   *
+   * @param object $value_object
+   *         The parameterized object that will be used to create a new Drupal object (node, user, what have you).
+   *         This function is called primarily by the create[X] methods found in RawDrupalContext.
+   */
+  public function convertAliasValues(&$value_object) {
+    if (!is_object($value_object)) {
+      throw new \Exception(sprintf('%s: Invalid argument for function: %s', get_class($this), __FUNCTION__));
+    }
+    // Translate dynamic values if present.
+    foreach ($value_object as $field_name => $prospective_alias) {
+      if (!is_string($prospective_alias)) {
+        continue;
+      }
+      if (preg_match('|^' . ExtensionCache\AliasCache::ALIAS_VALUE_PREFIX . '|', $prospective_alias)) {
+        // print "Alias found: $prospective_alias.\n";
+        // This should map to a value in the alias cache.
+        $confirmed_alias_with_field = str_replace(ExtensionCache\AliasCache::ALIAS_VALUE_PREFIX, '', $prospective_alias);
+        $av_components = explode('/', $confirmed_alias_with_field);
+        if (count($av_components) < 2) {
+          throw new \Exception(sprintf("%s::%s: Any alias passed as a value must have a field assigned to it.  The alias %s does not", get_class($this), __FUNCTION__, $v));
+        }
+        list($confirmed_alias, $referenced_field_name) = $av_components;
+        $o = $this->resolveAlias($confirmed_alias);
+        if (empty($o)) {
+          throw new \Exception(sprintf('%s::%s: Attempt was made to dynamically reference the property of an item that was not yet created.', get_class($this), __FUNCTION__));
+        }
+        if (!property_exists($o, $referenced_field_name)) {
+          throw new \Exception(sprintf("%s::%s: The field %s was  not found on the retrieved cache object: %s ", get_class($this), __FUNCTION__, $referenced_field_name, print_r($o, TRUE)));
+        }
+        $value_object->$field_name = $o->$referenced_field_name;
+      }
+    }
+  }
+  /**
+   * Returns list of definition translation resources paths.
+   * Note: moved from DrupalContext function to consolidate non-step
+   * defining functionality to parent class.
+   *
+   * @return array
+   */
+  public static function getTranslationResources() {
+    return glob(__DIR__ . '/../../../../i18n/*.xliff');
   }
   /**
    * Utility function to create a node quickly and easily.
@@ -239,6 +293,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $saved = $this->nodeCreate($values);
     return $saved;
   }
+
   /**
    * Utility function for the common job (in this context) of creating
    * a user.  This is a bit confusing with the presence of userCreate,
@@ -257,7 +312,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!empty($cached)) {
       return $cached;
     }
-
+    if(is_string($values['roles'])){
+      $values['roles'] = array_map("trim", explode(",", $values['roles']));
+    }
     // Assign defaults where possible.
     $values = $values + array(
         'name' => $this->getDriver()->getRandom()->name(8),
@@ -330,7 +387,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function getDrupalText($name) {
     $text = $this->getDrupalParameter('text');
     if (!isset($text[$name])) {
-      throw new \Exception(sprintf('No such Drupal string: %s', $name));
+      throw new \Exception(sprintf(':%s::%s: No such drupal string: %s', get_class($this), __FUNCTION__, $name));
     }
     return $text[$name];
   }
@@ -344,7 +401,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function getDrupalSelector($name) {
     $text = $this->getDrupalParameter('selectors');
     if (!isset($text[$name])) {
-      throw new \Exception(sprintf('No such selector configured: %s', $name));
+      throw new \Exception(sprintf(':%s::%s: No such selector configured: %s', get_class($this), __FUNCTION__, $name));
     }
     return $text[$name];
   }
@@ -412,24 +469,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     foreach ($callResults as $result) {
       if ($result->hasException()) {
         $exception = $result->getException();
-        throw $exception;
+        throw new \Exception(sprintf(':%s::%s: %s', get_class($this), __FUNCTION__, $exception->getMessage()));
       }
     }
-  }
-
-  /**
-   * Create a node.
-   *
-   * @return object
-   *   The created node.
-   */
-  public function nodeCreate($node) {
-    $this->dispatchHooks('BeforeNodeCreateScope', $node);
-    $this->parseEntityFields('node', $node);
-    $saved = $this->getDriver()->createNode($node);
-    $this->dispatchHooks('AfterNodeCreateScope', $saved);
-    self::$nodes->add($saved);
-    return $saved;
   }
 
   /**
@@ -459,7 +501,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       // If a field name starts with a ':' but we are not yet tracking a
       // multicolumn field we don't know to which field this belongs.
       elseif (empty($multicolumn_field)) {
-        throw new \Exception('Field name missing for ' . $field);
+        throw new \Exception(sprintf(':%s::%s: Field name missing for %s', get_class($this), __FUNCTION__, $field));
       }
       // Update the column name if the field name starts with a ':' and we are
       // already tracking a multicolumn field.
@@ -511,7 +553,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
   }
   /**
-   * Prints the cache contents of each cache.
+   * Prints the cache contents of each cache.  For debugging only.
+   * TODO: Possibly should be private - revisit.
    *
    * @param string $cache_name
    *   An optional string argument - prints only that
@@ -519,9 +562,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @return NULL
    */
-  public function displayCaches($cache_name = 'all') {
+  protected function displayCaches($cache_name = 'all') {
     if (empty($cache_name)) {
-      throw new \Exception("Invalid argument for " . __FUNCTION__);
+      throw new \Exception(sprintf('%s: Invalid argument for function: %s', get_class($this), __FUNCTION__));
     }
     if ($cache_name === 'all') {
       print self::$users . "\n";
@@ -533,11 +576,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       return;
     }
     if (!property_exists($this, $cache_name)) {
-      throw new \Exception($cache_name . " is not a valid cache for this context");
+      throw new \Exception(sprintf('%s:::%s: Cache name is not a valid cache for this context: %s', get_class($this), __FUNCTION__, $cache_name));
     }
     print (self::$$cache_name) . "\n";
 
   }
+
   /**
    * Create a user.
    *
@@ -545,14 +589,38 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created user.
    */
   public function userCreate($user) {
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($user);
+    $this->convertAliasValues($user);
     $this->dispatchHooks('BeforeUserCreateScope', $user);
     $this->parseEntityFields('user', $user);
-    $saved = $this->getDriver()->userCreate($user);
+    $this->getDriver()->userCreate($user);
     $this->dispatchHooks('AfterUserCreateScope', $user);
-    self::$users->add($user);
+    $user_primary_key = self::$users->add($user);
+    if (!is_null($named_alias)) {
+      $this->addAlias($named_alias, $user_primary_key, 'users');
+    }
     return $user;
   }
 
+  /**
+   * Create a node.
+   *
+   * @return object
+   *   The created node.
+   */
+  public function nodeCreate($node) {
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($node);
+    $this->convertAliasValues($node);
+    $this->dispatchHooks('BeforeNodeCreateScope', $node);
+    $this->parseEntityFields('node', $node);
+    $saved = $this->getDriver()->createNode($node);
+    $this->dispatchHooks('AfterNodeCreateScope', $saved);
+    $node_primary_key = self::$nodes->add($saved);
+    if (!is_null($named_alias)) {
+      $this->addAlias($named_alias, $node_primary_key, 'nodes');
+    }
+    return $saved;
+  }
   /**
    * Create a term. Note: does this deal with multiple taxonomies? It
    * doesn't appear so.
@@ -561,11 +629,15 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created term.
    */
   public function termCreate($term) {
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($term);
+    if (!is_null($named_alias)) {
+      throw new \Exception(sprintf('%s::%s: Aliasing for terms is not yet supported', get_class($this), __FUNCTION__));
+    }
     $this->dispatchHooks('BeforeTermCreateScope', $term);
     $this->parseEntityFields('taxonomy_term', $term);
     $saved = $this->getDriver()->createTerm($term);
     $this->dispatchHooks('AfterTermCreateScope', $saved);
-    self::$terms->add($term);
+    $term_primary_key = self::$terms->add($term);
     return $saved;
   }
   /**
@@ -579,11 +651,15 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return int              The role id of the newly created role.
    */
   public function roleCreate($permissions) {
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($permissions);
+    if (!is_null($named_alias)) {
+      throw new \Exception(sprintf('%s::%s: Aliasing for roles is not yet supported', get_class($this), __FUNCTION__));
+    }
     $role_name = $this->getDriver()->roleCreate($permissions);
     $role = new \stdClass();
     $role->rid = $role_name;
     $role->permissions = $permissions;
-    self::$roles->add($role);
+    $role_primary_key = self::$roles->add($role);
     return $role_name;
   }
   /**
@@ -597,6 +673,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created language, or FALSE if the language was already created.
    */
   public function languageCreate(\stdClass $language) {
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($role);
+    if (!is_null($named_alias)) {
+      throw new \Exception(sprintf('%s::%s: Aliasing for languages is not yet supported', get_class($this), __FUNCTION__));
+    }
     $this->dispatchHooks('BeforeLanguageCreateScope', $language);
     $language = $this->getDriver()->languageCreate($language);
     if ($language) {
@@ -605,24 +685,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return $language;
   }
-  /**
-   * Returns the currently logged in user, or NULL, if no login action has
-   * yet happened.
-   *
-   * @return object|NULL
-   *         The logged in user, or NULL if no user is currently logged in.
-   */
-  public function getCurrentUser() {
-    if (!$this->loggedIn()) {
-      return NULL;
-    }
-    if (empty(self::$users->current)) {
-      throw new \Exception('The drupal session is logged in, but no
-        current user is recorded in the context.  This is an invalid state, and
-        shouldn\'t have happened.');
-    }
-    return self::$users->current;
-  }
+
   /**
    * Returns the named user if he/she has been created.
    *
@@ -643,21 +706,89 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Returns the currently logged in user.
    *
-   * @return object|NULL The currently logged in user, in the format applicable to
-   * whatever drupal version is currently being run, or NULL if nobody is currently
+   * @return object|NULL
+   * The currently logged in user, in the format applicable to whatever drupal
+   * version is currently being run, or NULL if nobody is currently
    * logged in.
    */
   public function getLoggedInUser() {
     if ($this->loggedIn()) {
       return NULL;
     }
-    if (empty(self::$users->current)) {
-      throw new \Exception("User is logged in, but user was not registered with the context");
+    $current_user = $this->resolveAlias('_current_user_');
+    if (empty($current_user)) {
+      throw new \Exception(sprintf('%s::%s: The drupal session is logged in, but no
+        current user is recorded in the context.  This is an invalid state, and
+        shouldn\'t have happened.', get_class($this), __FUNCTION__));
     }
-    return self::$users->current;
+    return $current_user;
   }
+  /**
+   * Resolves a cache alias to one of the caches defined in the current static
+   * scope.
+   * I don't like this.  The alias cache has a hard dependency on this function
+   * to translate its output.  Code seems stinky. TODO: rethink this approach.
+   *
+   * @param string $alias
+   *   The alias to retrieve
+   *
+   * @return object
+   *   The object that was stored in the cache at that alias.
+   *
+   * @throws \Exception
+   *   If the alias is not found, or if the named cache does not exist.
+   */
+  protected function resolveAlias($alias) {
+    $a = self::$aliases->get($alias);
+    if (empty($a)) {
+      print "backtrace: \n".implode("\n", array_reduce(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS), function($prev, $curr){
+          $file = basename(@$curr['file'] ?: '');
+          $line = (@$curr['line']) ?: '';
+          $fn = (@$curr['function']) ?: '';
+          $prev []= sprintf("File: %s, Function: %s, Line %s\n", $file, $fn, $line);
+          return $prev;
 
-
+    }, array()));
+      throw new \Exception(sprintf("%s::%s: No alias by the name of %s exists", get_class($this), __FUNCTION__, $alias));
+    }
+    list($cache_name, $key) = $a;
+    if (!property_exists($this, $cache_name)) {
+      throw new \Exception(sprintf("%s::%s: No cache exists by the name of %s", get_class($this), __FUNCTION__, $cache_name));
+    }
+    return self::$$cache_name->get($key);
+  }
+  /**
+   * Adds the specified value as an aliased item to the AliasCache.
+   *
+   * @param string $alias
+   *   The globally unique alias to refer to this item by
+   * @param string $value
+   *   The alias cache is currently restricted to storing string values.  It
+   *                                      is expected that these values will correspond to the unique index
+   *                                      key of the cached item.
+   * @param string $cache_name
+   *   The name of the local cache where the item is stored.
+   */
+  protected function addAlias($alias, $value, $cache_name) {
+    if (!property_exists($this, $cache_name)) {
+      throw new \Exception(sprintf("%s::%s: No cache exists by the name of %s", get_class($this), __FUNCTION__, $cache_name));
+    }
+    // TODO: add a step to check if the aliased item exists before setting up the alias.
+    self::$aliases->add($value, array('key' => $alias, 'cache' => $cache_name));
+  }
+  /**
+   * Removes the named alias if it exists.
+   *
+   * @param string $alias
+   *   The named alias to remove
+   *
+   * @return object | NULL
+   *         The object the alias referred to, or NULL if the alias
+   *         was not found.
+   */
+  protected function removeAlias($alias) {
+    return self::$aliases->remove($alias);
+  }
   /**
    * Log-in the current user.
    *
@@ -666,7 +797,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function login($user) {
     if (!is_object($user) || !isset($user->name) || !isset($user->pass)) {
-      throw new \Exception("Invalid user argument passed to " . get_class($this) . "::" . __FUNCTION__);
+      throw new \Exception(sprintf('%s: Invalid argument for function: %s', get_class($this), __FUNCTION__));
     }
     // Check if logged in.
     if ($this->loggedIn()) {
@@ -679,25 +810,16 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $element->fillField($this->getDrupalText('password_field'), $user->pass);
     $submit = $element->findButton($this->getDrupalText('log_in'));
     if (empty($submit)) {
-      throw new \Exception(sprintf("No submit button at %s", $this->getSession()->getCurrentUrl()));
+      throw new \Exception(sprintf("%s::%s: No submit button at %s", get_class($this), __FUNCTION__, $this->getSession()->getCurrentUrl()));
     }
 
     // Log in.
     $submit->click();
 
     if (!$this->loggedIn()) {
-      /*
-      if (isset($this->user->role)) {
-      throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s' with role '%s'", $this->user->name, $this->user->role));
-      }
-      else {
-      throw new \Exception(sprintf("Unable to determine if logged in because 'log_out' link cannot be found for user '%s'", $this->user->name));
-      }
-       */
-      throw new \Exception(sprintf("Failed to log in as user '%s' with role '%s'", self::$users->current->name, self::$users->current->role));
+      throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role '%s'", get_class($this), __FUNCTION__, $user->name, $user->role));
     }
-
-    self::$users->current = $user;
+    $this->addAlias('_current_user_', $user->uid, 'users');
   }
 
   /**
@@ -705,7 +827,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function logout() {
     $this->getSession()->visit($this->locatePath('/user/logout'));
-    self::$users->current = FALSE;
+    $this->removeAlias('_current_user_');
   }
 
   /**
@@ -744,8 +866,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $element = $session->getPage();
     $result = $element->findLink($this->getDrupalText('log_out'));
     if ($result) {
-      if (empty(self::$users->current)) {
-        throw new \Exception("Invalid state - logged in, but current user is empty");
+      $current_user = $this->resolveAlias('_current_user_');
+      if (empty($current_user)) {
+        throw new \Exception(sprintf("%s::%s: Invalid state - logged in, but current user is empty", get_class($this), __FUNCTION__));
       }
     }
     return $result;
@@ -765,10 +888,11 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!$this->loggedIn()) {
       return FALSE;
     }
-    if (!isset(self::$users->current->role)) {
+    $current_user = $this->resolveAlias('_current_user_');
+    if (!isset($current_user->role)) {
       return FALSE;
     }
-    return self::$users->current->role == $role;
+    return $current_user->role == $role;
   }
 
   /**
@@ -791,13 +915,58 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function callContext($context_name, $method) {
     $other_context = self::$contexts->get($context_name);
     if (empty($other_context)) {
-      throw new \Exception("$context_name context not available from within " . get_class($this) . '.  Available contexts: ' . self::$contexts);
+      throw new \Exception(sprintf("%s::%s: $context_name context not available from within %s.  Available contexts: %s", get_class($this), __FUNCTION__, get_class($this), print_r(self::$contexts, TRUE)));
     }
     if (!method_exists($other_context, $method)) {
-      throw new \Exception("The method $method does not exist in the $context_name context");
+      throw new \Exception(sprintf("%s::%s: The method %s does not exist in the %s context", get_class($this), __FUNCTION__, $method, $context_name));
     }
     $args = array_slice(func_get_args(), 2);
     return call_user_func_array(array($other_context, $method), $args);
+  }
+  /**
+   * Utility function to convert a tableNode to an array.  TableNodes
+   * are immutable, so I can't directly modify them.  This function
+   * assumes row-based ordering.
+   *
+   * @param TableNode $table
+   *   The tablenode to be converted
+   *
+   * @return array           An array of the tablenode results.
+   */
+  public static function convertTableNodeToArray(\Behat\Gherkin\Node\TableNode $table) {
+
+    $options = array();
+    // As far as I can tell, tableNodes are immutable.  Need to step
+    // this back down to an array to ensure all required values are
+    // being accounted for.
+    foreach ($table->getRowsHash() as $field => $value) {
+      $options[$field] = $value;
+    }
+    return $options;
+  }
+  /**
+   * Retrieve a table row containing specified text from a given element.
+   * Note: moved from DrupalContext to consolidate non-step-defining functions.
+   *
+   * @param \Behat\Mink\Element\Element
+   * @param string
+   *   The text to search for in the table row.
+   *
+   * @return \Behat\Mink\Element\NodeElement
+   *
+   * @throws \Exception
+   */
+  public function getTableRow(Element $element, $search) {
+    $rows = $element->findAll('css', 'tr');
+    if (empty($rows)) {
+      throw new \Exception(sprintf('%s::%s: No rows found on the page %s', get_class($this), __FUNCTION__, $this->getSession()->getCurrentUrl()));
+    }
+    foreach ($rows as $row) {
+      if (strpos($row->getText(), $search) !== FALSE) {
+        return $row;
+      }
+    }
+    throw new \Exception(sprintf('%s::%s: Failed to find a row containing "%s" on the page %s', get_class($this), __FUNCTION__, $search, $this->getSession()->getCurrentUrl()));
   }
 
 }

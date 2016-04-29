@@ -50,10 +50,23 @@ interface CacheInterface {
    *                       primary method of indexing.  Make sure if you
    *                       pass this for one cache entry, you pass it for all,
    *                       or entries will be "lost".
+   * @return string The primary key index of the item within the cache.  This
+   *                    key will be unique within the cache.
    *
    */
-  public function add(&$value, $options=array());
+  public function add($value, $options=array());
 
+  /**
+   * Removes the object identified by the key $key from the cache.  Note: this
+   * function may only be implemented by caches that store objects which have
+   * no counterpart stored in the drupal database which needs to be later
+   * cleaned up.  Those caches must (at the moment) be add-only.
+   * @param  string $key The primary index by which the object is stored
+   *                     in the cache
+   * @return object|NULL      The object removed, or NULL if no object
+   *                              was stored by that key in the cache.
+   */
+  public function remove($key);
   /**
    * Finds an item in the cache that matches the described
    * set of options.  At a minimum, this should look at:

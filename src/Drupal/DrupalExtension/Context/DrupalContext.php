@@ -7,8 +7,6 @@
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
-use Behat\Mink\Element\Element;
-
 use Behat\Gherkin\Node\TableNode;
 
 /**
@@ -17,41 +15,64 @@ use Behat\Gherkin\Node\TableNode;
 final class DrupalContext extends RawDrupalContext implements TranslatableContext {
 
   /**
-   * Returns list of definition translation resources paths.
-   *
-   * @return array
-   */
-  public static function getTranslationResources() {
-    return glob(__DIR__ . '/../../../../i18n/*.xliff');
-  }
-
-  /**
    * @Given I am an anonymous user
    * @Given I am not logged in
    */
   public function assertAnonymousUser() {
+
     // Verify the user is logged out.
     if ($this->loggedIn()) {
       $this->logout();
     }
+  }
+  /**
+   * @Given I am the named user :alias;
+   */
+  public function iAmTheNamedUser($alias) {
+
+    $user = $this->resolveAlias($alias);
+    $this->login($user);
+  }
+  /**
+   * @Given I am the user:
+   */
+  public function iAmTheUser(TableNode $table) {
+
+    $options = self::convertTableNodeToArray($table);
+    $user    = $this->_createUser($options);
+    $this->login($user);
   }
 
   /**
    * Creates and authenticates a user with the given role(s).
    *
    * @Given I am logged in as a user with the :role role(s)
+   * @Given I am a user with the :role role(s)
    * @Given I am logged in as a/an :role
    */
-  public function assertAuthenticatedByRole($role) {
+  public function assertAuthenticatedByRole($roles) {
+
+    if (is_string($roles)) {
+      $roles = array_map("trim", explode(",", $roles));
+    }
     // Check if a user with this role is already logged in.
-    if (!$this->loggedInWithRole($role)) {
-      // Create user (and project).
-      $roles = explode(',', $role);
-      $roles = array_map('trim', $roles);
+    foreach ($roles as $role) {
+      if ($this->loggedInWithRole($role)) {
+        continue;
+      }
       $user = $this->_createUser(array('roles' => $roles));
       $this->login($user);
+      break;
     }
   }
+    /**
+     * Retrieves the named object, and
+     * @Given I set the values of :alias to:
+     */
+    public function iSetTheValuesTo($alias, TableNode $table)
+    {
+        throw new PendingException();
+    }
 
   /**
    * Creates and authenticates a user with the given role(s) and given fields.
@@ -62,13 +83,14 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am logged in as a user with the :role role(s) and I have the following fields:
    */
   public function assertAuthenticatedByRoleWithGivenFields($role, TableNode $fields) {
+
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
       // Create user (and project).
-      $roles = explode(',', $role);
-      $roles = array_map('trim', $roles);
+      $roles  = explode(',', $role);
+      $roles  = array_map('trim', $roles);
       $values = array(
-        'roles' => $roles
+        'roles' => $roles,
       );
       foreach ($fields->getRowsHash() as $field => $value) {
         $values[$field] = $value;
@@ -84,40 +106,17 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am logged in as a user with the :permissions permission(s)
    */
   public function assertLoggedInWithPermissions($permissions) {
+
     // Create user.
     $user = $this->_createUser();
 
     // Create and assign a temporary role with given permissions.
     $permissions = explode(',', $permissions);
-    $rid = $this->roleCreate($permissions);
+    $rid         = $this->roleCreate($permissions);
     $this->getDriver()->userAddRole($user, $rid);
 
     // Login.
     $this->login($user);
-  }
-
-  /**
-   * Retrieve a table row containing specified text from a given element.
-   *
-   * @param \Behat\Mink\Element\Element
-   * @param string
-   *   The text to search for in the table row.
-   *
-   * @return \Behat\Mink\Element\NodeElement
-   *
-   * @throws \Exception
-   */
-  public function getTableRow(Element $element, $search) {
-    $rows = $element->findAll('css', 'tr');
-    if (empty($rows)) {
-      throw new \Exception(sprintf('No rows found on the page %s', $this->getSession()->getCurrentUrl()));
-    }
-    foreach ($rows as $row) {
-      if (strpos($row->getText(), $search) !== FALSE) {
-        return $row;
-      }
-    }
-    throw new \Exception(sprintf('Failed to find a row containing "%s" on the page %s', $search, $this->getSession()->getCurrentUrl()));
   }
 
   /**
@@ -126,6 +125,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I should see (the text ):text in the :rowText row
    */
   public function assertTextInTableRow($text, $rowText) {
+
     $row = $this->getTableRow($this->getSession()->getPage(), $rowText);
     if (strpos($row->getText(), $text) === FALSE) {
       throw new \Exception(sprintf('Found a row containing "%s", but it did not contain the text "%s".', $rowText, $text));
@@ -142,6 +142,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I (should )see the :link in the :rowText row
    */
   public function assertClickInTableRow($link, $rowText) {
+
     $page = $this->getSession()->getPage();
     if ($link_element = $this->getTableRow($page, $rowText)->findLink($link)) {
       // Click the link and return.
@@ -155,6 +156,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given the cache has been cleared
    */
   public function assertCacheClear() {
+
     $this->getDriver()->clearCache();
   }
 
@@ -162,6 +164,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I run cron
    */
   public function assertCron() {
+
     $this->getDriver()->runCron();
   }
 
@@ -172,10 +175,11 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given a/an :type (content )with the title :title
    */
   public function createNode($type, $title) {
+
     // @todo make this easily extensible.
     $values = array(
       'title' => $title,
-      'type' => $type
+      'type'  => $type,
     );
     $saved = $this->_createNode($values);
     // Set internal page on the new node.
@@ -188,14 +192,15 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am viewing my :type (content )with the title :title
    */
   public function createMyNode($type, $title) {
+
     if (!$this->loggedIn()) {
       throw new \Exception(sprintf('There is no current logged in user to create a node for.'));
     }
 
     $values = array(
       'title' => $title,
-      'type' => $type,
-      'uid' => $this->getCurrentUser()->uid,
+      'type'  => $type,
+      'uid'   => $this->getLoggedInUser()->uid,
     );
     $saved = $this->_createNode($values);
 
@@ -212,6 +217,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given :type content:
    */
   public function createNodes($type, TableNode $nodesTable) {
+
     foreach ($nodesTable->getHash() as $nodeHash) {
       $nodeHash['type'] = $type;
       $this->_createNode($nodeHash);
@@ -229,6 +235,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am viewing a/an :type( content):
    */
   public function assertViewingNode($type, TableNode $fields) {
+
     $values = array(
       'type' => $type,
     );
@@ -242,17 +249,18 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
   }
 
-    /**
+  /**
    * Creates user of the given type, provided in the form:
    * | name      | Example user     |
    * | mail      | user@example.com |
    * | status    | 1                |
    * | ...       | ...              |.
-   * Assigns the as as the 'working' user
+   * Assigns the as as the 'working' user.
    *
    * @When working with the user:
    */
   public function whenWorkingWithTheUser(TableNode $fields) {
+
     $values = array();
     foreach ($fields->getRowsHash() as $field => $value) {
       $values[$field] = $value;
@@ -267,6 +275,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I should be able to edit a/an :type( content)
    */
   public function assertEditNodeOfType($type) {
+
     $saved = $this->_createNode(array('type' => $type));
 
     // Set internal browser on the node edit page.
@@ -276,7 +285,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $this->assertSession()->statusCodeEquals('200');
   }
 
-
   /**
    * Creates a term on an existing vocabulary.
    *
@@ -284,11 +292,12 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given a/an :vocabulary term with the name :name
    */
   public function createTerm($vocabulary, $name) {
+
     // @todo make this easily extensible.
     $term = (object) array(
-      'name' => $name,
+      'name'                    => $name,
       'vocabulary_machine_name' => $vocabulary,
-      'description' => $this->getRandom()->name(255),
+      'description'             => $this->getRandom()->name(255),
     );
     $saved = $this->termCreate($term);
 
@@ -307,6 +316,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given users:
    */
   public function createUsers(TableNode $usersTable) {
+
     foreach ($usersTable->getHash() as $userHash) {
 
       // Split out roles to process after user is created.
@@ -325,7 +335,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       }
     }
   }
-
   /**
    * Creates one or more terms on an existing vocabulary.
    *
@@ -340,8 +349,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given :vocabulary terms:
    */
   public function createTerms($vocabulary, TableNode $termsTable) {
+
     foreach ($termsTable->getHash() as $termsHash) {
-      $term = (object) $termsHash;
+      $term                          = (object) $termsHash;
       $term->vocabulary_machine_name = $vocabulary;
       $this->termCreate($term);
     }
@@ -362,6 +372,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *   The table listing languages by their ISO code.
    */
   public function createLanguages(TableNode $langcodesTable) {
+
     foreach ($langcodesTable->getHash() as $row) {
       $language = (object) array(
         'langcode' => $row['languages'],
@@ -382,6 +393,55 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     }
     fwrite(STDOUT, "\033[u");
     return;
+  }
+  /**
+   * Retrieves the aliased object, and prints it to the console.
+   *
+   * @param string $alias
+   *   The named alias of an already-created object
+   * @param string $field
+   *   (optional) The additional name of a field whose
+   *                        array/object value should be expanded (such types
+   *                        are collapsed by default for brevity.  A value of
+   *                        'all' in this field will expend the whole object).
+   *
+   * @Given I debug the object named :alias
+   * @Given I debug the object named :alias and expand the value of :field
+   */
+  public function whenIDebugTheObjectNamed($alias, $field = NULL) {
+
+    $object = $this->resolveAlias($alias);
+    if (empty($object)) {
+      throw new \Exception(sprintf("%s::%s: No value was found for the alias %s", get_class($this), __FUNCTION__, $alias));
+    }
+
+    if (!is_array($object) && !is_object($object)) {
+      print $object;
+      return;
+    }
+    $expand_field = ($field) ?: '';
+    $expand_all   = (!empty($expand_field) && strtolower($expand_field) === 'all');
+    $output       = "\n<$alias>\n";
+
+    foreach ($object as $k => $v) {
+      if (is_object($v) || is_array($v)) {
+        if ($expand_all || (!empty($expand_field) && $k === $expand_field)) {
+          $obj = print_r($v, TRUE);
+          $obj = implode("\n", array_map(function ($value) {
+            return "\t$value";
+          }, explode("\n", $obj)));
+          $output .= "\t$k: $obj\n";
+          continue;
+        }
+        else {
+          $output .= "\t$k: [Obj/Arr]\n";
+          continue;
+        }
+      }
+      $output .= "\t$k: \"$v\",\n";
+    }
+    $output .= "</$alias>\n";
+    print $output;
   }
 
 }

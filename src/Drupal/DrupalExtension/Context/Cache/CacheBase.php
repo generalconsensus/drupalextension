@@ -89,24 +89,24 @@ abstract class CacheBase implements CacheInterface {
   /**
    * {@InheritDoc}.
    */
-  public function add(&$item, $options=array()) {
+  public function add($item, $options=array()) {
     if(empty($item)){
+      var_dump(debug_backtrace());
       throw new \Exception("Cannot add an empty item to ".get_class($this));
     }
-    if(!is_object($item)){
-      throw new \Exception("Cannot add a non-object $item to ".get_class($this));
-    }
-    $primary_key = (!is_null($this->primary_key)) ? $item->{$this->primary_key} : NULL;
+    $primary_key = (!is_null($this->primary_key) && is_object($item)) ? $item->{$this->primary_key} : NULL;
     $options = $options + array(
       'key'=>$primary_key
     );
     if(empty($options['key'])){
       //in cases where there is no primary key, and no value was passed for
       //'key' in options
-      throw new \Exception("Couldn't establish primary key!  Value couldn't be added to cache.Cache state: " . $this);
+      throw new \Exception("Couldn't establish primary key!  Value couldn't be added to cache. Cache state: " . $this);
     }
-    //print "Adding entry " . $options['key'] . "\n";
     $options['key'] = strval($options['key']);
+    if (property_exists($this->cache,$options['key'])) {
+      throw new \Exception("An item with the index $options[key] already exists in this cache (".get_class($this).'): '.print_r($this->get($options['key']), TRUE));
+    }
     $this->cache->{$options['key']} = $item;
     // Look for any established extra indices, and index this content
     // by those as well.
@@ -125,6 +125,8 @@ abstract class CacheBase implements CacheInterface {
         $this->indices->{$k}->{$serialized_field_values} []= $options['key'];
       }
     }
+    //return the primary key index of the stored cache item.
+    return $options['key'];
   }
   /**
    * {@InheritDoc}
@@ -140,6 +142,12 @@ abstract class CacheBase implements CacheInterface {
       return $this->cache->{$key};
     }
     return NULL;
+  }
+  /**
+   * {@InheritDoc}
+   */
+  public function remove($key){
+    throw new \Exception(get_class($this).'::'.": does not implement the ".__FUNCTION__." method.");
   }
   /**
    * Returns the item found at the named index.
