@@ -139,7 +139,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public static function beforeFeature(\Behat\Behat\Hook\Scope\BeforeFeatureScope $scope) {
     if (!self::$feature_static_initialized) {
-      // Print "Initializing static caches\n";.
       self::$users = new ExtensionCache\UserCache();
       self::$users->addIndices('roles', 'name');
       self::$nodes = new ExtensionCache\NodeCache();
@@ -164,7 +163,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public static function afterFeature(\Behat\Behat\Hook\Scope\AfterFeatureScope $scope) {
     if (self::$feature_static_initialized) {
-      // Print "Destroying static caches\n";.
       self::$users = NULL;
       self::$nodes = NULL;
       self::$languages = NULL;
@@ -188,12 +186,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function beforeScenario(\Behat\Behat\Hook\Scope\BeforeScenarioScope $scope) {
     if (!self::$scenario_static_initialized) {
-      // Print "BeforeScenario.  Constructing context caches...\n";
-      // Print "Before scenario.  Adding contexts.\n";.
       $environment = $scope->getEnvironment();
       $settings    = $environment->getSuite()->getSettings();
       foreach ($settings['contexts'] as $context_name) {
-        // Print "Adding $context_name\n";.
         $context = $environment->getContext($context_name);
         self::$contexts->add($context, array('key' => $context_name));
       }
@@ -210,7 +205,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function afterScenario(\Behat\Behat\Hook\Scope\AfterScenarioScope $scope) {
     if (self::$scenario_static_initialized) {
-      // Print "Clearing static caches...\n";.
+      $this->logout();
       self::$users->clean($this);
       self::$nodes->clean($this);
       self::$languages->clean($this);
@@ -238,7 +233,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
         continue;
       }
       if (preg_match('|^' . ExtensionCache\AliasCache::ALIAS_VALUE_PREFIX . '|', $prospective_alias)) {
-        // print "Alias found: $prospective_alias.\n";
         // This should map to a value in the alias cache.
         $confirmed_alias_with_field = str_replace(ExtensionCache\AliasCache::ALIAS_VALUE_PREFIX, '', $prospective_alias);
         $av_components = explode('/', $confirmed_alias_with_field);
@@ -278,9 +272,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   protected function _createNode($values = array()) {
     $cached = self::$nodes->find($values);
-    // var_dump($values);
     if (!empty($cached)) {
-      // Print "Cached node found\n";.
       return $cached;
     }
 
@@ -310,10 +302,11 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   protected function _createUser($values = array()) {
     $cached = self::$users->find($values);
     if (!empty($cached)) {
+      print sprintf("%s::%s: Cached user found for value array %s", get_class($this), __FUNCTION__, print_r($cached, TRUE));
       return $cached;
     }
-    if(is_string($values['roles'])){
-      $values['roles'] = array_map("trim", explode(",", $values['roles']));
+    if (is_string($values['roles'])) {
+      throw new \Exception(sprintf("%s::%s: Invalid argument for roles: %s.  Should be an array.", get_class($this), __FUNCTION__, $values['roles']));
     }
     // Assign defaults where possible.
     $values = $values + array(
@@ -741,14 +734,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   protected function resolveAlias($alias) {
     $a = self::$aliases->get($alias);
     if (empty($a)) {
-      print "backtrace: \n".implode("\n", array_reduce(debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS), function($prev, $curr){
-          $file = basename(@$curr['file'] ?: '');
-          $line = (@$curr['line']) ?: '';
-          $fn = (@$curr['function']) ?: '';
-          $prev []= sprintf("File: %s, Function: %s, Line %s\n", $file, $fn, $line);
-          return $prev;
-
-    }, array()));
       throw new \Exception(sprintf("%s::%s: No alias by the name of %s exists", get_class($this), __FUNCTION__, $alias));
     }
     list($cache_name, $key) = $a;
@@ -883,16 +868,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return boolean
    *   Returns TRUE if the current logged in user has this role (or roles).
    */
-  public function loggedInWithRole($role) {
-    // TODO: Refactor to allow for multiple roles.
+  public function loggedInWithRoles($roles) {
     if (!$this->loggedIn()) {
       return FALSE;
     }
+    if (is_string($roles)) {
+      $roles = array_map("trim", explode(',', $roles));
+    }
     $current_user = $this->resolveAlias('_current_user_');
-    if (!isset($current_user->role)) {
+    if (!isset($current_user->roles)) {
       return FALSE;
     }
-    return $current_user->role == $role;
+    return (count(array_intersect($roles, $current_user->roles)) === count($current_user->roles));
   }
 
   /**

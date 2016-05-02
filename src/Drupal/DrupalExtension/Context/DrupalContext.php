@@ -39,6 +39,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   public function iAmTheUser(TableNode $table) {
 
     $options = self::convertTableNodeToArray($table);
+    if (is_string($options['roles'])) {
+      $options['roles'] = array_map("trim", explode(",", $options['roles']));
+    }
     $user    = $this->_createUser($options);
     $this->login($user);
   }
@@ -55,24 +58,13 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     if (is_string($roles)) {
       $roles = array_map("trim", explode(",", $roles));
     }
-    // Check if a user with this role is already logged in.
-    foreach ($roles as $role) {
-      if ($this->loggedInWithRole($role)) {
-        continue;
-      }
-      $user = $this->_createUser(array('roles' => $roles));
-      $this->login($user);
-      break;
+
+    if ($this->loggedInWithRoles($roles)) {
+      return TRUE;
     }
+    $user = $this->_createUser(array('roles' => $roles));
+    $this->login($user);
   }
-    /**
-     * Retrieves the named object, and
-     * @Given I set the values of :alias to:
-     */
-    public function iSetTheValuesTo($alias, TableNode $table)
-    {
-        throw new PendingException();
-    }
 
   /**
    * Creates and authenticates a user with the given role(s) and given fields.
@@ -83,7 +75,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am logged in as a user with the :role role(s) and I have the following fields:
    */
   public function assertAuthenticatedByRoleWithGivenFields($role, TableNode $fields) {
-
     // Check if a user with this role is already logged in.
     if (!$this->loggedInWithRole($role)) {
       // Create user (and project).
