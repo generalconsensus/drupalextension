@@ -265,7 +265,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $term = (object) array(
       'name' => $name,
       'vocabulary_machine_name' => $vocabulary,
-      'description' => $this->getRandom()->name(255),
+      'description' => $this->getDriver()->getRandom()->name(255),
     );
     $saved = $this->termCreate($term);
 
