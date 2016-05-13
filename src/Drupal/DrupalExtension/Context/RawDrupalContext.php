@@ -9,6 +9,7 @@ namespace Drupal\DrupalExtension\Context;
 use Behat\MinkExtension\Context\RawMinkContext;
 use Behat\Mink\Exception\DriverException;
 use Behat\Testwork\Hook\HookDispatcher;
+use Behat\Mink\Element\Element;
 
 use Drupal\DrupalDriverManager;
 
@@ -302,7 +303,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   protected function _createUser($values = array()) {
     $cached = self::$users->find($values);
     if (!empty($cached)) {
-      print sprintf("%s::%s: Cached user found for value array %s", get_class($this), __FUNCTION__, print_r($cached, TRUE));
+      //print sprintf("%s::%s: Cached user found for value array %s", get_class($this), __FUNCTION__, print_r($cached, TRUE));
       return $cached;
     }
     if (is_string($values['roles'])) {
@@ -943,7 +944,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @throws \Exception
    */
-  public function getTableRow(Element $element, $search) {
+  public function getTableRow($element, $search) {
     $rows = $element->findAll('css', 'tr');
     if (empty($rows)) {
       throw new \Exception(sprintf('%s::%s: No rows found on the page %s', get_class($this), __FUNCTION__, $this->getSession()->getCurrentUrl()));

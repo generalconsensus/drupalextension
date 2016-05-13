@@ -3,8 +3,6 @@
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
-use Behat\Mink\Element\Element;
-
 use Behat\Gherkin\Node\TableNode;
 
 /**
@@ -221,10 +219,10 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       $values[$field] = $value;
     }
 
-    $saved = $this->_createNode($node);
+    $node = $this->_createNode($values);
 
     // Set internal browser on the node.
-    $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
+    $this->getSession()->visit($this->locatePath('/node/' . $node->nid));
   }
 
   /**
@@ -303,7 +301,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
         unset($userHash['roles']);
       }
 
-      $user = $this->_createUser($userhash);
+      $user = $this->_createUser($userHash);
 
       // Assign roles.
       foreach ($roles as $role) {
