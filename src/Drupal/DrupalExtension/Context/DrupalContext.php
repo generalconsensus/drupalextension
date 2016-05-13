@@ -1,12 +1,10 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
+use Behat\Mink\Element\Element;
+
 use Behat\Gherkin\Node\TableNode;
 
 /**
@@ -19,7 +17,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am not logged in
    */
   public function assertAnonymousUser() {
-
     // Verify the user is logged out.
     if ($this->loggedIn()) {
       $this->logout();
@@ -97,7 +94,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am logged in as a user with the :permissions permission(s)
    */
   public function assertLoggedInWithPermissions($permissions) {
-
     // Create user.
     $user = $this->_createUser();
 
@@ -116,7 +112,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I should see (the text ):text in the :rowText row
    */
   public function assertTextInTableRow($text, $rowText) {
-
     $row = $this->getTableRow($this->getSession()->getPage(), $rowText);
     if (strpos($row->getText(), $text) === FALSE) {
       throw new \Exception(sprintf('Found a row containing "%s", but it did not contain the text "%s".', $rowText, $text));
@@ -133,7 +128,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I (should )see the :link in the :rowText row
    */
   public function assertClickInTableRow($link, $rowText) {
-
     $page = $this->getSession()->getPage();
     if ($link_element = $this->getTableRow($page, $rowText)->findLink($link)) {
       // Click the link and return.
@@ -147,7 +141,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given the cache has been cleared
    */
   public function assertCacheClear() {
-
     $this->getDriver()->clearCache();
   }
 
@@ -155,7 +148,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I run cron
    */
   public function assertCron() {
-
     $this->getDriver()->runCron();
   }
 
@@ -166,11 +158,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given a/an :type (content )with the title :title
    */
   public function createNode($type, $title) {
-
     // @todo make this easily extensible.
     $values = array(
       'title' => $title,
-      'type'  => $type,
     );
     $saved = $this->_createNode($values);
     // Set internal page on the new node.
@@ -183,7 +173,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am viewing my :type (content )with the title :title
    */
   public function createMyNode($type, $title) {
-
     if (!$this->loggedIn()) {
       throw new \Exception(sprintf('There is no current logged in user to create a node for.'));
     }
@@ -208,7 +197,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given :type content:
    */
   public function createNodes($type, TableNode $nodesTable) {
-
     foreach ($nodesTable->getHash() as $nodeHash) {
       $nodeHash['type'] = $type;
       $this->_createNode($nodeHash);
@@ -226,7 +214,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I am viewing a/an :type( content):
    */
   public function assertViewingNode($type, TableNode $fields) {
-
     $values = array(
       'type' => $type,
     );
@@ -266,7 +253,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I should be able to edit a/an :type( content)
    */
   public function assertEditNodeOfType($type) {
-
     $saved = $this->_createNode(array('type' => $type));
 
     // Set internal browser on the node edit page.
@@ -288,7 +274,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $term = (object) array(
       'name'                    => $name,
       'vocabulary_machine_name' => $vocabulary,
-      'description'             => $this->getRandom()->name(255),
+      'description'             => $this->getDriver()->getRandom()->name(255),
     );
     $saved = $this->termCreate($term);
 
@@ -307,7 +293,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given users:
    */
   public function createUsers(TableNode $usersTable) {
-
     foreach ($usersTable->getHash() as $userHash) {
 
       // Split out roles to process after user is created.
@@ -340,7 +325,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given :vocabulary terms:
    */
   public function createTerms($vocabulary, TableNode $termsTable) {
-
     foreach ($termsTable->getHash() as $termsHash) {
       $term                          = (object) $termsHash;
       $term->vocabulary_machine_name = $vocabulary;
@@ -363,7 +347,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *   The table listing languages by their ISO code.
    */
   public function createLanguages(TableNode $langcodesTable) {
-
     foreach ($langcodesTable->getHash() as $row) {
       $language = (object) array(
         'langcode' => $row['languages'],
