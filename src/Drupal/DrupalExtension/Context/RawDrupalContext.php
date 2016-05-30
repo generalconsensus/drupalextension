@@ -849,7 +849,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $submit->click();
     //$user->roles = array_diff($user->roles, array('authenticated user'));
     if (!$this->loggedIn()) {
-      var_dump($user);
+      fwrite(STDOUT, "Failed to login as user:".print_r($user, TRUE));
       $this->callContext('Drupal', 'iPutABreakpoint');
       throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role(s) '%s'", get_class($this), __FUNCTION__, $user->name, implode(", ", $user->roles)));
     }
@@ -980,11 +980,15 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @param TableNode $table
    *   The tablenode to be converted
    *
-   * @return array           An array of the tablenode results.
+   * @return array           An array of the tablenode results. Returns an empty
+   *                            array if the passed table is null or empty.
    */
-  public static function convertTableNodeToArray(\Behat\Gherkin\Node\TableNode $table, $arrangement = 'row') {
+  public static function convertTableNodeToArray(\Behat\Gherkin\Node\TableNode $table=NULL, $arrangement = 'row') {
 
-    $options = array();
+    $values = array();
+    if(is_null($table)){
+      return $values;
+    }
     // As far as I can tell, tableNodes are immutable.  Need to step
     // this back down to an array to ensure all required values are
     // being accounted for.
@@ -992,14 +996,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       case 'row':
       case 'rows':
           foreach ($table->getRowsHash() as $field => $value) {
-          $options[$field] = $value;
+          $values[$field] = $value;
           }
         break;
 
       case 'column':
       case 'columns':
       foreach ($table->getColumnsHash() as $field => $value) {
-          $options[$field] = $value;
+          $values[$field] = $value;
       }
         break;
 
@@ -1007,7 +1011,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
         throw new \Exception(sprintf("%s::%s: Unknown table structure requested: %s", get_class($this), __FUNCTION__, $arrangement));
       break;
     }
-    return $options;
+    return $values;
   }
   /**
    * Retrieve a table row containing specified text from a given element.

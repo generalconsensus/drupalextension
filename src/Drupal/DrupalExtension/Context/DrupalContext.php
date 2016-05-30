@@ -607,8 +607,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *   default for brevity. A value of 'all' in this field will expend the whole
    *   object).
    *
-   * @Given I debug the object named :alias
-   * @Given I debug the object named :alias and expand the value of :field
+   * @Given I debug the object( named) :alias
+   * @Given I debug the object( named) :alias and expand the value(s) of :field
+   * @Given I debug the object( named) :alias and expand the field(s) :field
    */
   public function whenIDebugTheObjectNamed($alias, $field = NULL) {
 
