@@ -77,13 +77,27 @@ class AliasCache extends ReferentialCache {
     if (!is_object($values)) {
       throw new \Exception(sprintf('%s::%s: Invalid argument type for function: %s', get_class($this), __FUNCTION__, gettype($values)));
     }
-    foreach ($values as $field_name => $prospective_alias) {
-      if (!is_string($prospective_alias)) {
+    foreach ($values as $field_name => $field_value) {
+      if (!is_string($field_value)) {
         // We currently don't allow aliases to exist deeper than the first level.
         continue;
       }
-      // Print sprintf("%s::%s: Prospective alias: %s\n", get_class($this), __FUNCTION__, $prospective_alias);.
-      if (preg_match('|^' . self::ALIAS_VALUE_PREFIX . '|', $prospective_alias)) {
+
+      if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '|', $field_value)) {
+        //no aliases anywhere in the field value.
+        continue;
+      }
+      //explode to allow for multiple aliases.  Resolve each.  Note that
+      //some may be aliases, while others may still be literal values.
+      $unresolved_field_values = array_map('trim', explode(',', $field_value));
+      $resolved_field_values =  array();
+      for($i = 0; $i < count($unresolved_field_values); $i++){
+        if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '|', $field_value)) {
+          $resolved_field_values [$i]= $unresolved_field_values[$i];
+          continue;
+        }
+        $prospective_alias = $unresolved_field_values[$i];
+        //print sprintf("%s::%s: Prospective alias: %s\n", get_class($this), __FUNCTION__, $prospective_alias);
         // This should map to a value in the alias cache.
         $confirmed_alias_with_field = str_replace(self::ALIAS_VALUE_PREFIX, '', $prospective_alias);
         $av_components = explode('/', $confirmed_alias_with_field);
@@ -106,11 +120,10 @@ class AliasCache extends ReferentialCache {
         if (!in_array($referenced_field_name, $entity_property_list)) {
           throw new \Exception(sprintf("%s::%s: The field %s was  not found on the retrieved cache object.  Available properties: %s ", get_class($this), __FUNCTION__, $referenced_field_name, print_r($entity_property_list, TRUE)));
         }
-        $value = $o->{$referenced_field_name};
-
-        // Print sprintf("%s::%s: Retrieved value: %s\n", get_class($this), __FUNCTION__, ((is_scalar($value)) ? $value : '[obj/arr]'));.
-        $values->{$field_name} = $value;
+        $resolved_field_values[$i] = $o->{$referenced_field_name};
       }
+      // re-collapse the multiple values back to a single string.
+      $values->{$field_name} = implode(', ', $resolved_field_values);
     }
   }
 }
