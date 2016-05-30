@@ -2,6 +2,8 @@
 
 This fork of the [Behat Drupal Extension](https://github.com/jhedstrom/drupalextension) is constructed to add a more advanced caching capability to the original, and to allow for resources to be shared and contexts to interact within a Behat 3 environment (which no longer allows SubContexts).
 
+Note: this fork also uses a forked variant of the Drupal Driver repository.
+
 This is development-only software.  Use at your own risk.
 
 *Original README follows:*

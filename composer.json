@@ -2,14 +2,24 @@
   "name": "drupal/drupal-extension",
   "type": "behat-extension",
   "description": "Drupal extension for Behat",
-  "keywords": ["drupal", "web", "test"],
+  "keywords": [
+    "drupal",
+    "web",
+    "test"
+  ],
   "homepage": "http://drupal.org/project/drupalextension",
   "license": "GPL-2.0+",
   "authors": [
-     {
-       "name": "Jonathan Hedstrom",
-       "email": "jhedstrom@gmail.com"
-     }
+    {
+      "name": "Jonathan Hedstrom",
+      "email": "jhedstrom@gmail.com"
+    }
+  ],
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "git@github.com:aronbeal/DrupalDriver.git"
+    }
   ],
   "require": {
     "behat/mink": "~1.5",
