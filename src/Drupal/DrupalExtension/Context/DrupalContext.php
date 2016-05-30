@@ -167,7 +167,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    */
   public function assertAuthenticatedByRoleWithGivenFields($role, TableNode $fields) {
     // Check if a user with this role is already logged in.
-    if (!$this->loggedInWithRole($role)) {
+    if (!$this->loggedInWithRoles($role)) {
       $values = array(
         'roles' => $role,
       );
