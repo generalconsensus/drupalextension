@@ -99,15 +99,14 @@ abstract class CacheBase implements CacheInterface {
     if (empty($value)) {
       $value = $index; //stored value is a primary key
     }
-    //print sprintf("%s::%s: Preparing to add item with key %s, value: %s\n", get_class($this), __FUNCTION__, $index, ((is_scalar($value)) ? $value : gettype($value)));
     try{
-      if (!empty($this->get($index))) {
+      $existing = $this->get($index);
+      if (!empty($existing)) {
         throw new \Exception(sprintf("%s::%s: An item with the index %s already exists in this cache", get_class($this), __FUNCTION__, $index));
       }
     } catch(\Exception $e){
       //do nothing - we *want* there to be no entry.
     }
-    //print sprintf("%s::%s: Adding item with key %s, value type %s\n", get_class($this), __FUNCTION__, $index, gettype($value));
     $this->cache->{$index} = $value;
     return $index;
   }
