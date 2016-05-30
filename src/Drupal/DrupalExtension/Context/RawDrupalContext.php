@@ -113,13 +113,15 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   protected static $languages = array();
 
+
   /**
    * Static scenario variable objects that need to be refreshed between
    * feature invocations use this flag.
    *
    * @var boolean
    */
-  protected static $feature_static_initialized = FALSE;
+  protected static $caches_initialized = FALSE;
+
   /**
    * Static scenario variable objects that need to be refreshed between
    * scenario invocations use this flag.
@@ -127,7 +129,61 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @var boolean
    */
   protected static $scenario_static_initialized = FALSE;
-
+  /**
+   * Initializes the cache objects, which are static. This must be done once
+   * in a feature.
+   *
+   * @return NULL
+   */
+  protected static function initializeCaches() {
+    if (!self::$caches_initialized) {
+      self::$users = new ExtensionCache\UserCache();
+      self::$users->addIndices('roles', 'name');
+      self::$nodes = new ExtensionCache\NodeCache();
+      self::$nodes->addIndices('type');
+      self::$languages = new ExtensionCache\LanguageCache();
+      self::$terms = new ExtensionCache\TermCache();
+      self::$roles = new ExtensionCache\RoleCache();
+      self::$contexts = new ExtensionCache\ContextCache();
+      self::$aliases = new ExtensionCache\AliasCache(array('users' => &self::$users, 'nodes' => &self::$nodes));
+      self::$caches_initialized = TRUE;
+    }
+  }
+  /**
+   * Clears the contents of all the (non-context) caches. This should be done
+   * after every scenario, and upon exit (normally, or via interruption).
+   *
+   * @return NULL
+   */
+  protected function clearCaches() {
+    if (self::$scenario_static_initialized) {
+      $this->logout();
+      self::$aliases->clean($this);
+      self::$users->clean($this);
+      self::$nodes->clean($this);
+      self::$languages->clean($this);
+      self::$terms->clean($this);
+      self::$roles->clean($this);
+      self::$contexts->clean($this);
+      self::$scenario_static_initialized = FALSE;
+    }
+  }
+  /**
+   * Destroys all cache objects.  This should be done between features, and
+   * upon exiting (normally or via interruption.).
+   */
+  protected static function destroyCaches() {
+    if (self::$caches_initialized) {
+      self::$users = NULL;
+      self::$nodes = NULL;
+      self::$languages = NULL;
+      self::$terms = NULL;
+      self::$roles = NULL;
+      self::$contexts = NULL;
+      self::$aliases = NULL;
+      self::$caches_initialized = FALSE;
+    }
+  }
 
   /**
    * @BeforeFeature
@@ -139,18 +195,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return NULL
    */
   public static function beforeFeature(\Behat\Behat\Hook\Scope\BeforeFeatureScope $scope) {
-    if (!self::$feature_static_initialized) {
-      self::$users = new ExtensionCache\UserCache();
-      self::$users->addIndices('roles', 'name');
-      self::$nodes = new ExtensionCache\NodeCache();
-      self::$nodes->addIndices('type');
-      self::$languages = new ExtensionCache\LanguageCache();
-      self::$terms = new ExtensionCache\TermCache();
-      self::$roles = new ExtensionCache\RoleCache();
-      self::$contexts = new ExtensionCache\ContextCache();
-      self::$aliases = new ExtensionCache\AliasCache();
-      self::$feature_static_initialized = TRUE;
-    }
+    self::initializeCaches();
   }
   /**
    * @AfterFeature
@@ -163,17 +208,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return NULL
    */
   public static function afterFeature(\Behat\Behat\Hook\Scope\AfterFeatureScope $scope) {
-    if (self::$feature_static_initialized) {
-      self::$users = NULL;
-      self::$nodes = NULL;
-      self::$languages = NULL;
-      self::$terms = NULL;
-      self::$roles = NULL;
-      self::$contexts = NULL;
-      self::$aliases = NULL;
-      self::$feature_static_initialized = FALSE;
-    }
-
+    self::destroyCaches();
   }
   /**
    * @BeforeScenario
@@ -191,7 +226,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       $settings    = $environment->getSuite()->getSettings();
       foreach ($settings['contexts'] as $context_name) {
         $context = $environment->getContext($context_name);
-        self::$contexts->add($context, array('key' => $context_name));
+        self::$contexts->add($context_name, $context);
       }
       self::$scenario_static_initialized = TRUE;
     }
@@ -205,53 +240,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * Revisit to ensure this is a valid assumption.
    */
   public function afterScenario(\Behat\Behat\Hook\Scope\AfterScenarioScope $scope) {
-    if (self::$scenario_static_initialized) {
-      $this->logout();
-      self::$users->clean($this);
-      self::$nodes->clean($this);
-      self::$languages->clean($this);
-      self::$terms->clean($this);
-      self::$roles->clean($this);
-      self::$contexts->clean($this);
-      self::$aliases->clean($this);
-      self::$scenario_static_initialized = FALSE;
-    }
+    self::clearCaches();
   }
-  /**
-   * Converts alias values passed in from a feature into the value of the object and field the alias references.
-   *
-   * @param object $value_object
-   *         The parameterized object that will be used to create a new Drupal object (node, user, what have you).
-   *         This function is called primarily by the create[X] methods found in RawDrupalContext.
-   */
-  public function convertAliasValues(&$value_object) {
-    if (!is_object($value_object)) {
-      throw new \Exception(sprintf('%s: Invalid argument for function: %s', get_class($this), __FUNCTION__));
-    }
-    // Translate dynamic values if present.
-    foreach ($value_object as $field_name => $prospective_alias) {
-      if (!is_string($prospective_alias)) {
-        continue;
-      }
-      if (preg_match('|^' . ExtensionCache\AliasCache::ALIAS_VALUE_PREFIX . '|', $prospective_alias)) {
-        // This should map to a value in the alias cache.
-        $confirmed_alias_with_field = str_replace(ExtensionCache\AliasCache::ALIAS_VALUE_PREFIX, '', $prospective_alias);
-        $av_components = explode('/', $confirmed_alias_with_field);
-        if (count($av_components) < 2) {
-          throw new \Exception(sprintf("%s::%s: Any alias passed as a value must have a field assigned to it.  The alias %s does not", get_class($this), __FUNCTION__, $v));
-        }
-        list($confirmed_alias, $referenced_field_name) = $av_components;
-        $o = $this->resolveAlias($confirmed_alias);
-        if (empty($o)) {
-          throw new \Exception(sprintf('%s::%s: Attempt was made to dynamically reference the property of an item that was not yet created.', get_class($this), __FUNCTION__));
-        }
-        if (!property_exists($o, $referenced_field_name)) {
-          throw new \Exception(sprintf("%s::%s: The field %s was  not found on the retrieved cache object: %s ", get_class($this), __FUNCTION__, $referenced_field_name, print_r($o, TRUE)));
-        }
-        $value_object->$field_name = $o->$referenced_field_name;
-      }
-    }
-  }
+
   /**
    * Returns list of definition translation resources paths.
    * Note: moved from DrupalContext function to consolidate non-step
@@ -272,11 +263,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return The newly created drupal node
    */
   protected function _createNode($values = array()) {
-    $cached = self::$nodes->find($values);
-    if (!empty($cached)) {
-      return $cached;
-    }
-
     // Create a serializable index from the unique values.
     // Assign defaults where possible.
     $values = $values + array(
@@ -301,29 +287,22 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return $user         The newly created user.
    */
   protected function _createUser($values = array()) {
-    $cached = self::$users->find($values);
-    if (!empty($cached)) {
-      //print sprintf("%s::%s: Cached user found for value array %s", get_class($this), __FUNCTION__, print_r($cached, TRUE));
-      return $cached;
-    }
-    if (is_string($values['roles'])) {
-      throw new \Exception(sprintf("%s::%s: Invalid argument for roles: %s.  Should be an array.", get_class($this), __FUNCTION__, $values['roles']));
-    }
+    // TODO: re-add find implementation to avoid creating users that are
+    // identical.  Maybe.
+    // $cached = self::$users->find($values);
+    // if (!empty($cached)) {
+    //   //print sprintf("%s::%s: Cached user found for value array %s", get_class($this), __FUNCTION__, print_r($cached, TRUE));
+    //   return $cached;
+    // }
     // Assign defaults where possible.
     $values = $values + array(
         'name' => $this->getDriver()->getRandom()->name(8),
         'pass' => $this->getDriver()->getRandom()->name(16),
-        'roles' => array()
+        'roles' => ''
       );
     $values['mail'] = "$values[name]@example.com";
     $values = (object) $values;
     $saved = $this->userCreate($values);
-    foreach ($values->roles as $role) {
-      if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
-        // Only add roles other than 'authenticated user'.
-        $this->getDriver()->userAddRole($saved, $role);
-      }
-    }
     return $saved;
   }
   /**
@@ -575,7 +554,55 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     print (self::$$cache_name) . "\n";
 
   }
+  /**
+   * Returns an object that has been previously created and assigned a given
+   * alias (using the @ symbol in a feature table.).
+   *
+   * Aliases are assigned using the @ symbol in table data.  When you assign
+   * an alias, it is tracked within this codebase (externally to Drupal), so
+   * that you can retrieve specific created objects during subsequent steps
+   * for altering.
+   *
+   * You can additionally refer to field values in aliased objects in
+   * subsequent creation steps.
+   *
+   * @param string $alias
+   *   The alias to resolve.  Can be any string.  If you
+   *                       create a user, for example, with the values:
+   *                         | name | Joe Schmoe |
+   *                         | @    | test_user  |
+   *                        Then the alias will be 'test_user' for the created
+   *                        user, and the $alias argument here will be 'test_user'.
+   *
+   * @return mixed
+   *         Returns whatever the original cached object was.  If the alias
+   *         referred to a user object, like in the above example, this function
+   *         would actually return that object, freshly loaded from the db.
+   */
+  public function resolveAlias($alias) {
+    return self::$aliases->get($alias);
+  }
+  /**
+   *
+   */
+  public function resolveAliasType($alias) {
+    try {
+      $cache_name = self::$aliases->getCache($alias);
+      switch ($cache_name) {
+        case 'nodes':
+          return 'node';
 
+        case 'users':
+          return 'user';
+
+        default:
+          throw new \Exception(sprintf("%s::%s line %s: The alias %s refers to an unsupported type.", get_class($this), __FUNCTION__, __LINE__, $alias));
+      }
+    }
+    catch (\Exception $e) {
+      throw new \Exception(sprintf("%s::%s line %s: The alias %s was not found. %s", get_class($this), __FUNCTION__, __LINE__, $alias, $e->getMessage()));
+    }
+  }
   /**
    * Create a user.
    *
@@ -583,19 +610,57 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created user.
    */
   public function userCreate($user) {
+    if (is_array($user)) {
+      $user = (object) $user;
+    }
     $named_alias = ExtensionCache\AliasCache::extractAliasKey($user);
-    $this->convertAliasValues($user);
+    self::$aliases->convertAliasValues($user);
     $this->dispatchHooks('BeforeUserCreateScope', $user);
     $this->parseEntityFields('user', $user);
     $this->getDriver()->userCreate($user);
+    foreach ($user->roles as $role) {
+      if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
+        // Only add roles other than 'authenticated user'.
+        $this->getDriver()->userAddRole($user, $role);
+      }
+    }
     $this->dispatchHooks('AfterUserCreateScope', $user);
-    $user_primary_key = self::$users->add($user);
+    self::$users->add($user->uid, $user);
     if (!is_null($named_alias)) {
-      $this->addAlias($named_alias, $user_primary_key, 'users');
+      self::$aliases->add($named_alias, array('value' => $user->uid, 'cache' => 'users'));
     }
     return $user;
   }
+  /**
+   * Alter an existing user. WARNING: This function is not currently part of
+   * the interface. An argument needs to be constructed for its addition. Note
+   * as well that this is a D7-specific implementation - this functionality
+   * should be removed to drupal-driver/src/Drupal/Driver/Cores/Drupal7.php,
+   * with corresponding interface and other core additions.
+   *
+   * @return object The altered node.
+   *
+   * @throws \Exception If the aliased object does not exist, or if any other
+   * situation occurs with the alteration. Exception will provide details.
+   */
+  public function userAlter($user, $values) {
+    // Pay no mind to resolveAlias and convertAliasValues - they serve to
+    // dynamically translate strings to field values at runtime.  Assume static
+    // values for purposes of simplicity.
+    if (!isset($user->uid)) {
+      throw new \Exception(sprintf("%s::%s: user argument does not appear to be a valid loaded drupal node!  Load result: %s", get_class($this), __FUNCTION__, print_r($node, TRUE)));
+    }
+    $values = (object) $values;
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($values);
+    if (!empty($named_alias)) {
+      throw new \Exception(sprintf("%s::%s line %s: Alias keys are not allowed in alteration steps.", get_class($this), __FUNCTION__, __LINE__));
+    }
+    self::$aliases->convertAliasValues($values);
+    $this->parseEntityFields('user', $values);
+    $this->getDriver()->getCore()->userAlter($user, $values);
+    return $user;
 
+  }
   /**
    * Create a node.
    *
@@ -603,17 +668,56 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created node.
    */
   public function nodeCreate($node) {
+    if (is_array($node)) {
+      $node = (object) $node;
+    }
     $named_alias = ExtensionCache\AliasCache::extractAliasKey($node);
-    $this->convertAliasValues($node);
+    self::$aliases->convertAliasValues($node);
     $this->dispatchHooks('BeforeNodeCreateScope', $node);
     $this->parseEntityFields('node', $node);
-    $saved = $this->getDriver()->createNode($node);
-    $this->dispatchHooks('AfterNodeCreateScope', $saved);
-    $node_primary_key = self::$nodes->add($saved);
+    // note: this driver function actually returns the created object, where
+    // others do not.  This should be standardized.
+    $node = $this->getDriver()->createNode($node);
+    $this->dispatchHooks('AfterNodeCreateScope', $node);
+    $node_primary_key = self::$nodes->add($node->nid);
     if (!is_null($named_alias)) {
-      $this->addAlias($named_alias, $node_primary_key, 'nodes');
+      self::$aliases->add($named_alias, array('value' => $node->nid, 'cache' => 'nodes'));
     }
-    return $saved;
+    return $node;
+  }
+  /**
+   * Alter an existing node. WARNING: This function is not currently part of
+   * the interface. An argument needs to be constructed for its addition. Note
+   * as well that this is a D7-specific implementation - this functionality
+   * should be removed to drupal-driver/src/Drupal/Driver/Cores/Drupal7.php,
+   * with corresponding interface and other core additions.
+   *
+   * @return object The altered node.
+   *
+   * @throws \Exception If the aliased object does not exist, or if any other
+   * situation occurs with the alteration. Exception will provide details.
+   */
+  public function nodeAlter($node, $values) {
+    // Pay no mind to resolveAlias and convertAliasValues - they serve to
+    // dynamically translate strings to field values at runtime.  Assume static
+    // values for purposes of simplicity.
+    if (!isset($node->nid)) {
+      throw new \Exception(sprintf("%s::%s: Node argument does not appear to be a valid loaded drupal node!  Load result: %s", get_class($this), __FUNCTION__, print_r($node, TRUE)));
+    }
+    $values = (object) $values;
+    $named_alias = ExtensionCache\AliasCache::extractAliasKey($values);
+    if (!empty($named_alias)) {
+      throw new \Exception(sprintf("%s::%s line %s: Alias keys are not allowed in alteration steps.", get_class($this), __FUNCTION__, __LINE__));
+    }
+    self::$aliases->convertAliasValues($values);
+    $this->parseEntityFields('node', $values);
+    $this->getDriver()->getCore()->nodeAlter($node, $values);
+    return $node;
+    // Situations that need handling:
+    // 1) resolving values for differing field types
+    // 2) resolving alias changes (for aliases as defined by this class)
+    // 3) resolving changes to immutable values.
+
   }
   /**
    * Create a term. Note: does this deal with multiple taxonomies? It
@@ -709,7 +813,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if ($this->loggedIn()) {
       return NULL;
     }
-    $current_user = $this->resolveAlias('_current_user_');
+    $current_user = self::$aliases->get('_current_user_');
     if (empty($current_user)) {
       throw new \Exception(sprintf('%s::%s: The drupal session is logged in, but no
         current user is recorded in the context.  This is an invalid state, and
@@ -717,64 +821,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return $current_user;
   }
-  /**
-   * Resolves a cache alias to one of the caches defined in the current static
-   * scope.
-   * I don't like this.  The alias cache has a hard dependency on this function
-   * to translate its output.  Code seems stinky. TODO: rethink this approach.
-   *
-   * @param string $alias
-   *   The alias to retrieve
-   *
-   * @return object
-   *   The object that was stored in the cache at that alias.
-   *
-   * @throws \Exception
-   *   If the alias is not found, or if the named cache does not exist.
-   */
-  protected function resolveAlias($alias) {
-    $a = self::$aliases->get($alias);
-    if (empty($a)) {
-      throw new \Exception(sprintf("%s::%s: No alias by the name of %s exists", get_class($this), __FUNCTION__, $alias));
-    }
-    list($cache_name, $key) = $a;
-    if (!property_exists($this, $cache_name)) {
-      throw new \Exception(sprintf("%s::%s: No cache exists by the name of %s", get_class($this), __FUNCTION__, $cache_name));
-    }
-    return self::$$cache_name->get($key);
-  }
-  /**
-   * Adds the specified value as an aliased item to the AliasCache.
-   *
-   * @param string $alias
-   *   The globally unique alias to refer to this item by
-   * @param string $value
-   *   The alias cache is currently restricted to storing string values.  It
-   *                                      is expected that these values will correspond to the unique index
-   *                                      key of the cached item.
-   * @param string $cache_name
-   *   The name of the local cache where the item is stored.
-   */
-  protected function addAlias($alias, $value, $cache_name) {
-    if (!property_exists($this, $cache_name)) {
-      throw new \Exception(sprintf("%s::%s: No cache exists by the name of %s", get_class($this), __FUNCTION__, $cache_name));
-    }
-    // TODO: add a step to check if the aliased item exists before setting up the alias.
-    self::$aliases->add($value, array('key' => $alias, 'cache' => $cache_name));
-  }
-  /**
-   * Removes the named alias if it exists.
-   *
-   * @param string $alias
-   *   The named alias to remove
-   *
-   * @return object | NULL
-   *         The object the alias referred to, or NULL if the alias
-   *         was not found.
-   */
-  protected function removeAlias($alias) {
-    return self::$aliases->remove($alias);
-  }
+
   /**
    * Log-in the current user.
    *
@@ -783,13 +830,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function login($user) {
     if (!is_object($user) || !isset($user->name) || !isset($user->pass)) {
-      throw new \Exception(sprintf('%s: Invalid argument for function: %s', get_class($this), __FUNCTION__));
+      throw new \Exception(sprintf('%s::%s line %s: Invalid argument for function: %s', get_class($this), __FUNCTION__, __LINE__, print_r($user, TRUE)));
     }
     // Check if logged in.
     if ($this->loggedIn()) {
       $this->logout();
     }
-
     $this->getSession()->visit($this->locatePath('/user'));
     $element = $this->getSession()->getPage();
     $element->fillField($this->getDrupalText('username_field'), $user->name);
@@ -801,11 +847,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
     // Log in.
     $submit->click();
-
+    //$user->roles = array_diff($user->roles, array('authenticated user'));
     if (!$this->loggedIn()) {
-      throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role '%s'", get_class($this), __FUNCTION__, $user->name, $user->role));
+      var_dump($user);
+      $this->callContext('Drupal', 'iPutABreakpoint');
+      throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role(s) '%s'", get_class($this), __FUNCTION__, $user->name, implode(", ", $user->roles)));
     }
-    $this->addAlias('_current_user_', $user->uid, 'users');
+    self::$aliases->add('_current_user_', array('value' => $user->uid, 'cache' => 'users'));
   }
 
   /**
@@ -813,7 +861,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function logout() {
     $this->getSession()->visit($this->locatePath('/user/logout'));
-    $this->removeAlias('_current_user_');
+    self::$aliases->remove('_current_user_');
   }
 
   /**
@@ -850,14 +898,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // If a logout link is found, we are logged in. While not perfect, this is
     // how Drupal SimpleTests currently work as well.
     $element = $session->getPage();
-    $result = $element->findLink($this->getDrupalText('log_out'));
-    if ($result) {
-      $current_user = $this->resolveAlias('_current_user_');
-      if (empty($current_user)) {
-        throw new \Exception(sprintf("%s::%s: Invalid state - logged in, but current user is empty", get_class($this), __FUNCTION__));
-      }
-    }
-    return $result;
+    return $element->findLink($this->getDrupalText('log_out'));
+    // If ($result) {
+    //   $current_user = self::$aliases->get('_current_user_');
+    //   if (empty($current_user)) {
+    //     throw new \Exception(sprintf("%s::%s: Invalid state - logged in, but current user is empty", get_class($this), __FUNCTION__));
+    //   }
+    // }.
   }
 
   /**
@@ -876,7 +923,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (is_string($roles)) {
       $roles = array_map("trim", explode(',', $roles));
     }
-    $current_user = $this->resolveAlias('_current_user_');
+    $current_user = self::$aliases->get('_current_user_');
     if (!isset($current_user->roles)) {
       return FALSE;
     }
@@ -901,9 +948,23 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *                       context, or if the named context does not exist.
    */
   public function callContext($context_name, $method) {
-    $other_context = self::$contexts->get($context_name);
-    if (empty($other_context)) {
-      throw new \Exception(sprintf("%s::%s: $context_name context not available from within %s.  Available contexts: %s", get_class($this), __FUNCTION__, get_class($this), print_r(self::$contexts, TRUE)));
+    try {
+      // Assume context_name is the full literal classpath for starters.
+      $other_context = self::$contexts->get($context_name);
+    }
+    catch (\Exception $e) {
+      // Search by classpath failed. Try a partial match, based just on the
+      // class name.  If you get a single result, use it.  If not, throw an
+      // exception.
+      $other_contexts = self::$contexts->find(array('class' => $context_name));
+      if (count($other_contexts) === 0) {
+        throw new \Exception(sprintf("%s::%s: %s context not available.  Available contexts: %s", get_class($this), __FUNCTION__, $context_name, print_r(self::$contexts, TRUE)));
+      }
+      if (count($other_contexts) > 1) {
+        throw new \Exception(sprintf("%s::%s: line %s: Multiple results for context lookup term %s; please be more specific.", get_class($this), __FUNCTION__, __LINE__, $context_name));
+      }
+      $other_context = $other_contexts[0];
+      unset($other_contexts);
     }
     if (!method_exists($other_context, $method)) {
       throw new \Exception(sprintf("%s::%s: The method %s does not exist in the %s context", get_class($this), __FUNCTION__, $method, $context_name));
@@ -921,14 +982,30 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @return array           An array of the tablenode results.
    */
-  public static function convertTableNodeToArray(\Behat\Gherkin\Node\TableNode $table) {
+  public static function convertTableNodeToArray(\Behat\Gherkin\Node\TableNode $table, $arrangement = 'row') {
 
     $options = array();
     // As far as I can tell, tableNodes are immutable.  Need to step
     // this back down to an array to ensure all required values are
     // being accounted for.
-    foreach ($table->getRowsHash() as $field => $value) {
-      $options[$field] = $value;
+    switch ($arrangement) {
+      case 'row':
+      case 'rows':
+          foreach ($table->getRowsHash() as $field => $value) {
+          $options[$field] = $value;
+          }
+        break;
+
+      case 'column':
+      case 'columns':
+      foreach ($table->getColumnsHash() as $field => $value) {
+          $options[$field] = $value;
+      }
+        break;
+
+      default:
+        throw new \Exception(sprintf("%s::%s: Unknown table structure requested: %s", get_class($this), __FUNCTION__, $arrangement));
+      break;
     }
     return $options;
   }

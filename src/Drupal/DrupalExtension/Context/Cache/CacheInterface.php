@@ -40,21 +40,8 @@ interface CacheInterface {
    * whatever field the class sets for $primary_key (class property,
    * as well as any other fields establisehed prior to the add call
    * via addIndices().
-   * @param mixed $value  The type of value to be stored
-   *                      depends on the implementing class.
-   * @param array $options Additional options to be passed.  May
-   *                       include the following:
-   *                       'key': sets the key value to store this entry by.
-   *                       If passed, this will bypass whatever the cache class
-   *                       has set for a primary key for the type as the
-   *                       primary method of indexing.  Make sure if you
-   *                       pass this for one cache entry, you pass it for all,
-   *                       or entries will be "lost".
-   * @return string The primary key index of the item within the cache.  This
-   *                    key will be unique within the cache.
-   *
    */
-  public function add($value, $options=array());
+  public function add($index, $value=NULL);
 
   /**
    * Removes the object identified by the key $key from the cache.  Note: this
@@ -81,7 +68,7 @@ interface CacheInterface {
    * @return An item of the type managed by the implementing
    *                 subclass, or NULL if no such item was found.
    */
-  public function find($values=array());
+  public function find(array $values=array());
   /**
    * Provides a count of items in this cache
    * @return int The number of items
