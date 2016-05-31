@@ -54,21 +54,26 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * A value of FALSE denotes an anonymous user.
    *
-   * @var stdClass|bool
+   * @var \stdClass|bool
    */
   public $user = FALSE;
   /**
+   * Stores named aliases to cache objects.
+   *
    * A cache object that can store a globally unique alias to any object in
-   * any of the other caches.  This cache stores the primary index of the
-   * object in the other cache (and the cache name) rather than the object itself.
+   * any of the other caches. This cache stores the primary index of the
+   * object in the other cache (and the cache name) rather than the object
+   * itself.
    *
    * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
   protected static $aliases = NULL;
   /**
-   * Keep track of nodes so they can be cleaned up.  Note that this has
-   * been converted to a static variable, reflecting the fact that nodes
-   * can be created by multiple contexts.
+   * Stores ids of created nodes to be cleaned up later.
+   *
+   * Keep track of nodes so they can be cleaned up, or retrived for further
+   * modification. Note that this has been converted to a static variable,
+   * reflecting the fact that nodes can be created by multiple contexts.
    *
    * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
@@ -96,6 +101,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   protected static $roles = NULL;
 
   /**
+   * For tracking contexts created by the scenario.
+   *
    * Keep track of any other contexts run during this scenario.  If they do
    * not require shared state, I can use them.  This *may* need to be in
    * static context, so as to be available to the AfterFeature hook.
@@ -113,29 +120,33 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
 
   /**
-   * Static scenario variable objects that need to be refreshed between
-   * feature invocations use this flag.
+   * Tracks whether cache objects have been initialized.
+   *
+   * The caches are static instances that need to be created only once
+   * during feature buildup, and cleared after scenario execution.  Note
+   * that clearing also entails removing the corresponding objects from
+   * the drupal test instance.
    *
    * @var boolean
    */
-  protected static $caches_initialized = FALSE;
+  protected static $cachesInitialized = FALSE;
 
   /**
-   * Static scenario variable objects that need to be refreshed between
-   * scenario invocations use this flag.
+   * Flag tracking static scenario initialization.
+   *
+   * Objects like caches are initialized on every feature restart, but are
+   * cleared at the end of scenarios.  This flag ensures that clearing is
+   * only attempted once.
    *
    * @var boolean
    */
-  protected static $scenario_static_initialized = FALSE;
+  protected static $scenarioStaticInitialized = FALSE;
 
   /**
-   * Initializes the cache objects, which are static. This must be done once
-   * in a feature.
-   *
-   * @return NULL
+   * Initializes the cache objects, which are static.
    */
   protected static function initializeCaches() {
-    if (!self::$caches_initialized) {
+    if (!self::$cachesInitialized) {
       self::$users = new UserCache();
       self::$users->addIndices('roles', 'name');
       self::$nodes = new NodeCache();
@@ -145,18 +156,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$roles = new RoleCache();
       self::$contexts = new ContextCache();
       self::$aliases = new AliasCache(array('users' => &self::$users, 'nodes' => &self::$nodes));
-      self::$caches_initialized = TRUE;
+      self::$cachesInitialized = TRUE;
     }
   }
 
   /**
-   * Clears the contents of all the (non-context) caches. This should be done
-   * after every scenario, and upon exit (normally, or via interruption).
+   * Clears the contents of all the (non-context) caches.
    *
-   * @return NULL
+   * This should be done after every scenario, and upon exit (normally, or via
+   * interruption).
    */
   protected function clearCaches() {
-    if (self::$scenario_static_initialized) {
+    if (self::$scenarioStaticInitialized) {
       $this->logout();
       self::$aliases->clean($this);
       self::$users->clean($this);
@@ -165,16 +176,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$terms->clean($this);
       self::$roles->clean($this);
       self::$contexts->clean($this);
-      self::$scenario_static_initialized = FALSE;
+      self::$scenarioStaticInitialized = FALSE;
     }
   }
 
   /**
-   * Destroys all cache objects.  This should be done between features, and
-   * upon exiting (normally or via interruption.).
+   * Destroys all cache objects.
+   *
+   * This should be done between features, and upon exiting (normally or via
+   * interruption.).
    */
   protected static function destroyCaches() {
-    if (self::$caches_initialized) {
+    if (self::$cachesInitialized) {
       self::$users = NULL;
       self::$nodes = NULL;
       self::$languages = NULL;
@@ -182,66 +195,70 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$roles = NULL;
       self::$contexts = NULL;
       self::$aliases = NULL;
-      self::$caches_initialized = FALSE;
+      self::$cachesInitialized = FALSE;
     }
   }
 
   /**
-   * @BeforeFeature
-   *
    * Instantiates all cache objects that will be used to store drupal ... stuff.
    *
-   * @param  Behat\Behat\Hook\Scope\BeforeFeatureScope $scope
-   *   the behat surrounding scope
-   * @return NULL
+   * @param Behat\Behat\Hook\Scope\BeforeFeatureScope $scope
+   *   The behat surrounding scope.
+   *
+   * @BeforeFeature
    */
   public static function beforeFeature(BeforeFeatureScope $scope) {
     self::initializeCaches();
   }
 
   /**
+   * Invalidates all static cache objects.
+   *
+   * Invalidation is done to ensure proper garbage collection.
+   *
+   * @param Behat\Behat\Hook\Scope\AfterFeatureScope $scope
+   *   The behat surrounding scope.
+   *
    * @AfterFeature
-   *
-   * Invalidates all static cache objects to ensure proper garbage
-   * collection.
-   *
-   * @param  Behat\Behat\Hook\Scope\AfterFeatureScope $scope
-   *   the behat surrounding scope
-   * @return NULL
    */
   public static function afterFeature(AfterFeatureScope $scope) {
     self::destroyCaches();
   }
 
   /**
-   * @BeforeScenario
+   * Captures other contexts.
    *
-   * Captures other contexts established during this scenario invocation,
-   * and stores them for in-context use.
-   * @param  \Behat\Behat\Hook\Scope\BeforeScenarioScope $scope
-   *   The behat scope
-   *   [description]
-   * @return [type]                                                       [description]
+   * This method uses the BeforeScenario hook to capture other contexts
+   * established during this scenario invocation, and stores them for
+   * in-context use.
+   *
+   * @param \Behat\Behat\Hook\Scope\BeforeScenarioScope $scope
+   *   The behat scope.
+   *
+   * @BeforeScenario
    */
   public function beforeScenario(BeforeScenarioScope $scope) {
-    if (!self::$scenario_static_initialized) {
+    if (!self::$scenarioStaticInitialized) {
       $environment = $scope->getEnvironment();
       $settings    = $environment->getSuite()->getSettings();
       foreach ($settings['contexts'] as $context_name) {
         $context = $environment->getContext($context_name);
         self::$contexts->add($context_name, $context);
       }
-      self::$scenario_static_initialized = TRUE;
+      self::$scenarioStaticInitialized = TRUE;
     }
   }
 
   /**
-   * @AfterScenario
-   * Cleans all the cache objects.  This has the side effect of cleaning
-   * any cached objects from the database.
+   * Cleans all the cache objects.
+   *
+   * This has the side effect of cleaning any cached objects from the
+   * database.
    *
    * TODO: This approach assumes all context scenarios end at the same time.
    * Revisit to ensure this is a valid assumption.
+   *
+   * @AfterScenario
    */
   public function afterScenario(AfterScenarioScope $scope) {
     self::clearCaches();
@@ -249,10 +266,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
   /**
    * Returns list of definition translation resources paths.
+   *
    * Note: moved from DrupalContext function to consolidate non-step
    * defining functionality to parent class.
    *
    * @return array
+   *   Returns an array containing .xliff i18n entries
    */
   public static function getTranslationResources() {
     return glob(__DIR__ . '/../../../../i18n/*.xliff');
@@ -261,13 +280,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Utility function to create a node quickly and easily.
    *
-   * @param array $valuesAn
-   *   array of values to assign to the node.
+   * @param array $values
    *   An array of values to assign to the node.
    *
-   * @return The newly created drupal node
+   * @return object
+   *   The newly created drupal node.
    */
-  protected function _createNode($values = array()) {
+  protected function createDefaultNode($values = array()) {
     // Create a serializable index from the unique values.
     // Assign defaults where possible.
     $values = $values + array(
@@ -279,26 +298,21 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
+   * Creates a user.
+   *
    * Utility function for the common job (in this context) of creating
    * a user.  This is a bit confusing with the presence of userCreate,
    * but this serves as a wrapper for that call to include caching
    * and role assignment.
    *
-   * @param array $valuesAn
-   *   array of key/value pairs that describe
+   * @param array $values
    *   An array of key/value pairs that describe
    *   the values to be assigned to this user.
    *
-   * @return $user         The newly created user.
+   * @return object
+   *   The newly created user.
    */
-  protected function _createUser($values = array()) {
-    // TODO: re-add find implementation to avoid creating users that are
-    // identical.  Maybe.
-    // $cached = self::$users->find($values);
-    // if (!empty($cached)) {
-    //   //print sprintf("%s::%s: Cached user found for value array %s", get_class($this), __FUNCTION__, print_r($cached, TRUE));
-    //   return $cached;
-    // }
+  protected function createDefaultUser($values = array()) {
     // Assign defaults where possible.
     $values = $values + array(
       'name' => $this->getDriver()->getRandom()->name(8),
@@ -319,7 +333,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * {@inheritDoc}.
+   * {@InheritDoc}.
    */
   public function getDrupal() {
     return $this->drupal;
@@ -346,6 +360,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   Parameter name.
    *
    * @return mixed
+   *   Returns either the value of the parameter with the key $name, or NULL if
+   *   the parameter is not defined.
    */
   public function getDrupalParameter($name) {
     return isset($this->drupalParameters[$name]) ? $this->drupalParameters[$name] : NULL;
@@ -361,6 +377,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @throws \Exception
    *
    * @return
+   *   Returns either the value of the text test parameter $name, or NULL if
+   *   not found.
    */
   public function getDrupalText($name) {
     $text = $this->getDrupalParameter('text');
@@ -375,6 +393,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @param $name
    *   string CSS selector name
+   *
+   * @return string
+   *   Returns either the value of the selector test parameter $name, or NULL if
+   *   not found.
    */
   public function getDrupalSelector($name) {
     $text = $this->getDrupalParameter('selectors');
@@ -435,7 +457,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @param string $scope
    *   The entity scope to dispatch.
-   * @param object $entity
+   * @param \stdClass $entity
    *   The entity.
    */
   protected function dispatchHooks($scopeType, \stdClass $entity) {
@@ -532,14 +554,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * Prints the cache contents of each cache.  For debugging only.
+   * Prints the cache contents of each cache.
+   *
+   * For debugging only.
    * TODO: Possibly should be private - revisit.
    *
    * @param string $cache_name
    *   An optional string argument - prints only that
    *                            specific cache.
-   *
-   * @return NULL
    */
   protected function displayCaches($cache_name = 'all') {
     if (empty($cache_name)) {
@@ -562,6 +584,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
+   * Resolves an alias to a cached object.
+   *
    * Returns an object that has been previously created and assigned a given
    * alias (using the @ symbol in a feature table.).
    *
@@ -642,11 +666,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * Alter an existing user. WARNING: This function is not currently part of
-   * the interface. An argument needs to be constructed for its addition. Note
-   * as well that this is a D7-specific implementation - this functionality
-   * should be removed to drupal-driver/src/Drupal/Driver/Cores/Drupal7.php,
-   * with corresponding interface and other core additions.
+   * Alter an existing user.
    *
    * @return object The altered node.
    *
@@ -698,16 +718,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * Alter an existing node. WARNING: This function is not currently part of
-   * the interface. An argument needs to be constructed for its addition. Note
-   * as well that this is a D7-specific implementation - this functionality
-   * should be removed to drupal-driver/src/Drupal/Driver/Cores/Drupal7.php,
-   * with corresponding interface and other core additions.
+   * Alter an existing node.
    *
    * @return object The altered node.
-   *
-   * @throws \Exception If the aliased object does not exist, or if any other
-   * situation occurs with the alteration. Exception will provide details.
    */
   public function nodeAlter($node, $values) {
     // Pay no mind to resolveAlias and convertAliasValues - they serve to
@@ -732,11 +745,11 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * Create a term. Note: does this deal with multiple taxonomies? It
-   * doesn't appear so.
+   * Create a term.
    *
-   * @return object
-   *   The created term.
+   * Note: does this deal with multiple taxonomies? It doesn't appear so.
+   *
+   * @return object The created term.
    */
   public function termCreate($term) {
     $named_alias = AliasCache::extractAliasKey($term);
@@ -752,6 +765,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
+   * Creates a role.
+   *
    * Extracted from DrupalContext's assertLoggedInWithPermissions,
    * this moves the functionality of creating a possibly shared role
    * into the parent class.
