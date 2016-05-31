@@ -1,9 +1,5 @@
 <?php
 
-/**
- * Contains \Drupal\DrupalExtension\Context\DrupalSubContextInterface.
- */
-
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\Context;

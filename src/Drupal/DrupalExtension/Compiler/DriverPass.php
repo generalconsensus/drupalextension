@@ -2,14 +2,17 @@
 
 namespace Drupal\DrupalExtension\Compiler;
 
-use Symfony\Component\DependencyInjection\Reference,
-    Symfony\Component\DependencyInjection\ContainerBuilder,
-    Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
+//use ContainerBuilder; //this line is in conflict with line 6
+//use CompilerPassInterface;  //in conflict with line 5
 
 /**
  * Drupal\DrupalExtension container compilation pass.
  */
 class DriverPass implements CompilerPassInterface {
+
   /**
    * Register Drupal drivers.
    */
@@ -50,4 +53,5 @@ class DriverPass implements CompilerPassInterface {
       'setDefaultDriverName', array($container->getParameter('drupal.drupal.default_driver'))
     );
   }
+
 }

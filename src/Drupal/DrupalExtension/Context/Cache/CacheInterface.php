@@ -1,59 +1,72 @@
 <?php
 
-/**
- * @file
- */
 namespace Drupal\DrupalExtension\Context\Cache;
 /**
- *  A simple class to store cached copies of created Drupal items,
- *  with indexing
+ * A simple class to store cached copies of created Drupal items,
+ *  with indexing.
  */
 interface CacheInterface {
+
   /**
    * Purges any values of the given item's type from the Drupal
    * database.
-   * @param  Drupal\DrupalExtension\Context $context The currently
+   *
+   * @param Drupal\DrupalExtension\Context $context
+   *   The currently
    *                                                 executing context.
-   * @throws  \Exception If any kind of error occurred during purging.
+   *
+   * @throws \Exception If any kind of error occurred during purging.
    */
   public function clean(&$context);
+
   /**
    * Adds an index to a given cache to speed searching by a particular
    * mechanism.  Any content subsequently added to this cache will be
    * indexed by the provided field in addition to its main index.
-   * @param  string... $index_name One or more names of the indexes to add
+   *
+   * @param string... $index_name
+   *   One or more names of the indexes to add
    */
   public function addIndices();
+
   /**
    * Retrieves the cached value, if it exists.  The passed key must
    * be one of the indexed keys the item is stored under.
    *
-   * @param  string  $key       The key the item is stored under
+   * @param string $keyThe
+   *   key the item is stored under
+   *   The key the item is stored under
+   *
    * @return (mixed)
    *         Either the appropriate value for whatever type of
    *         cache is implementing this interface, or NULL if no
    *         such value is found.
    */
   public function get($key);
+
   /**
    * Sets a value in the cache.  The value will be indexed by
    * whatever field the class sets for $primary_key (class property,
    * as well as any other fields establisehed prior to the add call
    * via addIndices().
    */
-  public function add($index, $value=NULL);
+  public function add($index, $value = NULL);
 
   /**
    * Removes the object identified by the key $key from the cache.  Note: this
    * function may only be implemented by caches that store objects which have
    * no counterpart stored in the drupal database which needs to be later
    * cleaned up.  Those caches must (at the moment) be add-only.
-   * @param  string $key The primary index by which the object is stored
+   *
+   * @param string $key
+   *   The primary index by which the object is stored
    *                     in the cache
+   *
    * @return object|NULL      The object removed, or NULL if no object
    *                              was stored by that key in the cache.
    */
   public function remove($key);
+
   /**
    * Finds an item in the cache that matches the described
    * set of options.  At a minimum, this should look at:
@@ -62,18 +75,24 @@ interface CacheInterface {
    *   in the values array that match an implementing subclass'
    *   index list.
    *
-   * @param  array  $values An array of key/value pairs describing
-   *                         how to create an item of the type
-   *                         managed by the cache.
+   * @param array $valuesAn
+   *   array of key/value pairs describing
+   *   An array of key/value pairs describing
+   *                        how to create an item of the type
+   *                        managed by the cache.
+   *
    * @return An item of the type managed by the implementing
    *                 subclass, or NULL if no such item was found.
    */
-  public function find(array $values=array());
+  public function find(array $values = array());
+
   /**
-   * Provides a count of items in this cache
+   * Provides a count of items in this cache.
+   *
    * @return int The number of items
    */
   public function count();
+
   /**
    * Provides a list of additional indices assigned to this cache.
    *
@@ -81,6 +100,7 @@ interface CacheInterface {
    * by additional keys to aid in easy retrieval for different
    * scenarios.  This method returns a list of indices that
    * may be used for searching.
+   *
    * @return array An array of string indices
    */
   public function getNamedIndices();

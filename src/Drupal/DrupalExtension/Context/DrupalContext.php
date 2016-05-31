@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
@@ -26,6 +22,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       $this->logout();
     }
   }
+
   /**
    * Creates a user.
    * A note on aliases:.
@@ -49,6 +46,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $options = self::convertTableNodeToArray($table);
     return $this->_createUser($options);
   }
+
   /**
    * Convenience step to demonstrate how aliasing works. The @ symbol
    * above is special syntax that defines an 'alias' for a given creation. You
@@ -101,6 +99,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $user = $this->resolveAlias($alias);
     $this->login($user);
   }
+
   /**
    * Creates a new user and logs them in.
    *
@@ -453,6 +452,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       $this->theUser($userHash);
     }
   }
+
   /**
    * Creates one or more terms on an existing vocabulary.
    *
@@ -505,6 +505,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       $this->languageCreate($language);
     }
   }
+
   /**
    * Retrieves the named object, and assigns new values to it.
    *
@@ -514,17 +515,20 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $o = $this->resolveAlias($alias);
     $type = $this->resolveAliasType($alias);
     $values = self::convertTableNodeToArray($table);
-    switch($type){
+    switch ($type) {
       case 'node':
         $this->nodeAlter($o, $values);
-      break;
+        break;
+
       case 'user':
         $this->userAlter($o, $values);
-      break;
+        break;
+
       default:
         throw new \Exception(sprintf(':%s::%s: Alteration of %s types not yet supported: %s', get_class($this), __FUNCTION__, $type));
     }
   }
+
   /**
    * Pauses the scenario until the user presses a key. Useful when debugging a scenario.
    *
@@ -565,6 +569,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     } while (TRUE);
     fwrite(STDOUT, "\033[u");
   }
+
   /**
    * Retrieves the provided aliased object, and prints the value of the
    * indicated field.
@@ -574,7 +579,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *   must be of the form '@:' + alias_name + '/' + field_name, e.g.:
    *   '@:test_user/uid'
    *
-   *
    * @Given I debug the alias( value) :alias
    */
   public function debugAliasValue($aliasfield) {
@@ -582,10 +586,10 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     // TODO: revisit this regex to ensure this can match any alias/field name
     // combination.
     @list($alias, $field) = explode('/', ltrim($aliasfield, '@:'));
-    if(empty($alias)){
+    if (empty($alias)) {
       throw new \Exception(sprintf("%s::%s line %s: No alias was found in the passed argument %s", get_class($this), __FUNCTION__, __LINE__, $aliasfield));
     }
-    if(empty($field)){
+    if (empty($field)) {
       return $this->whenIDebugTheObjectNamed($alias, NULL);
     }
     $object = $this->resolveAlias($alias);
@@ -595,6 +599,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     print sprintf("\n<%s>\n\tField: %s, Value: \n\t%s\n</%s>\n", $alias, $field, $str_field_value, $alias);
 
   }
+
   /**
    * Retrieves the aliased object, and prints it to the console. For debugging
    * purposes.
@@ -646,6 +651,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $output .= "</$alias>\n";
     print $output;
   }
+
   /**
    * Provides a high level overview of cache state for debugging purposes.
    *

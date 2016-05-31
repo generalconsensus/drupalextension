@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context\Cache;
 /**
  * A simple class to store cached copies of created Drupal items,
@@ -31,6 +27,7 @@ abstract class CacheBase implements CacheInterface {
   //  $indices (stdClass) -> [index name (stdClass))] -> [index key (array)] ->
   //    [values (string indices)].
   protected $indices = NULL;
+
   /**
    * Constructor.
    */
@@ -38,11 +35,12 @@ abstract class CacheBase implements CacheInterface {
     // Print "Constructing ".get_class($this) ."\n";.
     $this->cache = new \stdClass();
     $this->indices = new \stdClass();
-    if(!is_null($this->primary_key)){
+    if (!is_null($this->primary_key)) {
       $this->addIndices($this->primary_key);
     }
     $this->resetCache();
   }
+
   /**
    * Can only be called internally by the clean method, as that method does
    * db cleanup as a side-effect before calling, which would otherwise not
@@ -54,16 +52,18 @@ abstract class CacheBase implements CacheInterface {
     $this->cache = new \stdClass();
     // $this->hash = new \stdClass();
     foreach ($this->getNamedIndices() as $k) {
-      //print "Creating named index: $k\n";
+      // Print "Creating named index: $k\n";.
       $this->indices->{$k} = new \stdClass();
     }
   }
+
   /**
    * {@inheritDoc}.
    */
   public function getNamedIndices() {
     return array_keys(get_object_vars($this->indices));
   }
+
   /**
    * Provides a list of the keys assigned to objects in this cache.
    *
@@ -72,6 +72,7 @@ abstract class CacheBase implements CacheInterface {
   protected function getCacheIndicies() {
     return array_keys(get_object_vars($this->cache));
   }
+
   /**
    * {@InheritDoc}.
    */
@@ -88,35 +89,40 @@ abstract class CacheBase implements CacheInterface {
     }
 
   }
+
   /**
    * {@InheritDoc}.
    */
-  public function add($index, $value=NULL) {
+  public function add($index, $value = NULL) {
     if (empty($index)) {
-        throw new \Exception(sprintf("%s::%s: Couldn't determine primary key! Value couldn't be added to cache - cannot safely continue.", get_class($this), __FUNCTION__));
+      throw new \Exception(sprintf("%s::%s: Couldn't determine primary key! Value couldn't be added to cache - cannot safely continue.", get_class($this), __FUNCTION__));
     }
     $index = strval($index);
     if (empty($value)) {
-      $value = $index; //stored value is a primary key
+      // Stored value is a primary key.
+      $value = $index;
     }
-    try{
+    try {
       $existing = $this->get($index);
       if (!empty($existing)) {
         throw new \Exception(sprintf("%s::%s: An item with the index %s already exists in this cache", get_class($this), __FUNCTION__, $index));
       }
-    } catch(\Exception $e){
-      //do nothing - we *want* there to be no entry.
+    }
+    catch (\Exception $e) {
+      // Do nothing - we *want* there to be no entry.
     }
     $this->cache->{$index} = $value;
     return $index;
   }
+
   /**
    * This cache does not implement this interface method, and will throw an
    * exception if called.
    */
-  public function find(array $values=array()) {
+  public function find(array $values = array()) {
     throw new \Exception(sprintf("%s: does not implement the %s method", get_class($this), __FUNCTION__));
   }
+
   /**
    * {@InheritDoc}.
    */
@@ -130,6 +136,7 @@ abstract class CacheBase implements CacheInterface {
   public function remove($key) {
     throw new \Exception(sprintf("%s:: does not implement the %s method %", get_class($this), __FUNCTION__));
   }
+
   /**
    * Returns the item found at the named index.
    *
@@ -155,7 +162,6 @@ abstract class CacheBase implements CacheInterface {
     return $this->indices->{$index_name}->{$index_key};
   }
 
-
   /**
    * {@InheritDoc}.
    */
@@ -165,6 +171,7 @@ abstract class CacheBase implements CacheInterface {
     }
     return $this->cache->{$key};
   }
+
   /**
    * Magic method to display cache contents as a CLI-formatted string.
    *

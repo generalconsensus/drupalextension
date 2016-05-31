@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context\Cache;
 
 /**
@@ -13,17 +9,20 @@ namespace Drupal\DrupalExtension\Context\Cache;
 abstract class ReferentialCache extends CacheBase {
 
   protected $cache_references = NULL;
-  public function __construct(){
+
+  /**
+   *
+   */
+  public function __construct() {
     parent::__construct();
-    if(func_num_args() !== 1){
+    if (func_num_args() !== 1) {
       throw new \Exception(sprintf("%s::%s: Alias cache requires an array of cache references as an argument. Number of arguments passed: %s", __CLASS__, __FUNCTION__, func_num_args()));
     }
-    if(!is_array(func_get_arg(0))){
+    if (!is_array(func_get_arg(0))) {
       throw new \Exception(sprintf("%s::%s: Wrong argument type (%s) passed.", __CLASS__, __FUNCTION__, gettype(func_get_arg(0))));
     }
     $this->cache_references = (object) func_get_arg(0);
   }
-
 
   /**
    * {@InheritDoc}.
@@ -34,11 +33,11 @@ abstract class ReferentialCache extends CacheBase {
    *   'value'=> The index of the cached object that is being stored.  This is
    *   the primary index by which the original object is stored.
    */
-  public function add($index, $value=NULL) {
+  public function add($index, $value = NULL) {
     if (empty($index)) {
-        throw new \Exception(sprintf("%s::%s: Couldn't determine primary key! Value couldn't be added to cache - cannot safely continue.", get_class($this), __FUNCTION__));
+      throw new \Exception(sprintf("%s::%s: Couldn't determine primary key! Value couldn't be added to cache - cannot safely continue.", get_class($this), __FUNCTION__));
     }
-    if(!is_array($value)){
+    if (!is_array($value)) {
       throw new \Exception(sprintf("%s::%s: Invalid argument type: %s (array required)", __CLASS__, __FUNCTION__, gettype($value)));
     }
     if (!isset($value['value'])) {
@@ -50,12 +49,13 @@ abstract class ReferentialCache extends CacheBase {
         passed for 'cache' in the second argument (the named cache where
         the object is stored).");
     }
-    if(!property_exists($this->cache_references, $value['cache'])){
+    if (!property_exists($this->cache_references, $value['cache'])) {
       throw new \Exception(sprintf("%s::%s: The cache '%s' is not available as a referrable cache", __CLASS__, __FUNCTION__, $value['cache']));
     }
-    //print sprintf("%s::%s: Adding named alias: %s to id %s with cache %s\n", get_class($this), __FUNCTION__, $index, $value['value'], $value['cache']);
+    // Print sprintf("%s::%s: Adding named alias: %s to id %s with cache %s\n", get_class($this), __FUNCTION__, $index, $value['value'], $value['cache']);.
     return parent::add($index, (object) $value);
   }
+
   /**
    * {@InheritDoc}.
    *
@@ -64,7 +64,7 @@ abstract class ReferentialCache extends CacheBase {
    */
   public function get($key) {
     $o = parent::get($key);
-    if(!property_exists($this->cache_references, $o->cache)){
+    if (!property_exists($this->cache_references, $o->cache)) {
       throw new \Exception(sprintf("%s::%s: The cache '%s' is not referrable", __CLASS__, __FUNCTION__, $o->cache));
     }
     return $this->cache_references->{$o->cache}->get($o->value);
@@ -81,18 +81,20 @@ abstract class ReferentialCache extends CacheBase {
     }
     return NULL;
   }
+
   /**
    * This cache does not implement this interface method, and will throw an
    * exception if called.
    */
   public function addIndices() {
-      throw new \Exception(sprintf("%s::%s: Function not implemented", __CLASS__, __FUNCTION__));
+    throw new \Exception(sprintf("%s::%s: Function not implemented", __CLASS__, __FUNCTION__));
   }
+
   /**
    * {@InheritDoc}.
    */
   public function clean(&$context) {
-    if($this->count() === 0){
+    if ($this->count() === 0) {
       return TRUE;
     }
     // Do not need to delete contexts; just remove references.

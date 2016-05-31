@@ -11,7 +11,7 @@ use Behat\Testwork\Hook\Scope\HookScope;
 abstract class EntityHook extends RuntimeFilterableHook {
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function filterMatches(HookScope $scope) {
     if (NULL === ($filterString = $this->getFilterString())) {

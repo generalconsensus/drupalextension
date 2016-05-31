@@ -11,14 +11,14 @@ use Behat\Gherkin\Node\TableNode;
 class MessageContext extends RawDrupalContext implements TranslatableContext {
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public static function getTranslationResources() {
     return glob(__DIR__ . '/../../../../i18n/*.xliff');
   }
 
   /**
-   * Checks if the current page contains the given error message
+   * Checks if the current page contains the given error message.
    *
    * @param $message
    *   string The text to be checked
@@ -35,7 +35,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page contains the given set of error messages
+   * Checks if the current page contains the given set of error messages.
    *
    * @param $messages
    *   array An array of texts to be checked
@@ -50,7 +50,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given error message
+   * Checks if the current page does not contain the given error message.
    *
    * @param $message
    *   string The text to be checked
@@ -66,7 +66,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given set error messages
+   * Checks if the current page does not contain the given set error messages.
    *
    * @param $messages
    *   array An array of texts to be checked
@@ -81,7 +81,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page contains the given success message
+   * Checks if the current page contains the given success message.
    *
    * @param $message
    *   string The text to be checked
@@ -98,7 +98,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page contains the given set of success messages
+   * Checks if the current page contains the given set of success messages.
    *
    * @param $message
    *   array An array of texts to be checked
@@ -113,7 +113,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given set of success message
+   * Checks if the current page does not contain the given set of success message.
    *
    * @param $message
    *   string The text to be checked
@@ -129,7 +129,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given set of success messages
+   * Checks if the current page does not contain the given set of success messages.
    *
    * @param $message
    *   array An array of texts to be checked
@@ -144,7 +144,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page contains the given warning message
+   * Checks if the current page contains the given warning message.
    *
    * @param $message
    *   string The text to be checked
@@ -161,7 +161,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page contains the given set of warning messages
+   * Checks if the current page contains the given set of warning messages.
    *
    * @param $message
    *   array An array of texts to be checked
@@ -176,7 +176,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given set of warning message
+   * Checks if the current page does not contain the given set of warning message.
    *
    * @param $message
    *   string The text to be checked
@@ -192,7 +192,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given set of warning messages
+   * Checks if the current page does not contain the given set of warning messages.
    *
    * @param $message
    *   array An array of texts to be checked
@@ -207,7 +207,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page contain the given message
+   * Checks if the current page contain the given message.
    *
    * @param $message
    *   string The message to be checked
@@ -224,7 +224,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Checks if the current page does not contain the given message
+   * Checks if the current page does not contain the given message.
    *
    * @param $message
    *   string The message to be checked
@@ -252,6 +252,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
    * @param $exceptionMsgMissing
    *   string The message being thrown when the message is not contained, string
    *   should contain two '%s' as placeholders for the current URL and the message.
+   *
    * @throws \Exception
    */
   private function _assert($message, $selectorId, $exceptionMsgNone, $exceptionMsgMissing) {
@@ -269,7 +270,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
   }
 
   /**
-   * Internal callback to check if the current page does not contain the given message
+   * Internal callback to check if the current page does not contain the given message.
    *
    * @param $message
    *   string The message to be checked
@@ -278,6 +279,7 @@ class MessageContext extends RawDrupalContext implements TranslatableContext {
    * @param $exceptionMsg
    *   string The message being thrown when the message is contained, string
    *   should contain two '%s' as placeholders for the current URL and the message.
+   *
    * @throws \Exception
    */
   private function _assertNot($message, $selectorId, $exceptionMsg) {

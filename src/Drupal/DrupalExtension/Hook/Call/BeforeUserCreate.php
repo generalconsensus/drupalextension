@@ -12,7 +12,7 @@ class BeforeUserCreate extends EntityHook {
   /**
    * Initializes hook.
    */
-  public function __construct($filterString, $callable, $description = null) {
+  public function __construct($filterString, $callable, $description = NULL) {
     parent::__construct(UserScope::BEFORE, $filterString, $callable, $description);
   }
 

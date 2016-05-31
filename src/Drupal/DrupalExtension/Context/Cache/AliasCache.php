@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context\Cache;
 
 /**
@@ -25,10 +21,10 @@ class AliasCache extends ReferentialCache {
    *         present.
    */
   public static function extractAliasKey(&$o) {
-    if(!is_object($o)){
+    if (!is_object($o)) {
       throw new \Exception(sprintf("%s::%s: Wrong argument type (%s) passed.", __CLASS__, __FUNCTION__, gettype($o)));
     }
-    //TODO: check for multiple aliases set on one object
+    // TODO: check for multiple aliases set on one object.
     $alias = NULL;
     if (is_object($o)) {
       if (property_exists($o, self::ALIAS_KEY_PREFIX)) {
@@ -47,21 +43,27 @@ class AliasCache extends ReferentialCache {
     }
     return $alias;
   }
+
   /**
    * Returns the cache name where the object is stored.  Should only ever be
    * called by RawDrupalContext.
-   * @param  string $alias The alias for the stored object
+   *
+   * @param string $alias
+   *   The alias for the stored object
+   *
    * @return string        The cache name where the object is stored
-   * @throws  \Exception If the alias does not exist, or the cache where it
+   *
+   * @throws \Exception If the alias does not exist, or the cache where it
    *                    indicates its data is stored does not exist.
    */
-  public function getCache($alias){
+  public function getCache($alias) {
     if (!property_exists($this->cache, $alias)) {
       throw new \Exception(sprintf("%s::%s: No result found for key %s", __CLASS__, __FUNCTION__, $key));
     }
     $o = $this->cache->{$alias};
     return $o->cache;
   }
+
   /**
    * Converts alias values passed in from a feature into the value of the object and field the alias references.
    *
@@ -84,20 +86,20 @@ class AliasCache extends ReferentialCache {
       }
 
       if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '|', $field_value)) {
-        //no aliases anywhere in the field value.
+        // No aliases anywhere in the field value.
         continue;
       }
-      //explode to allow for multiple aliases.  Resolve each.  Note that
-      //some may be aliases, while others may still be literal values.
+      // Explode to allow for multiple aliases.  Resolve each.  Note that
+      // some may be aliases, while others may still be literal values.
       $unresolved_field_values = array_map('trim', explode(',', $field_value));
-      $resolved_field_values =  array();
-      for($i = 0; $i < count($unresolved_field_values); $i++){
+      $resolved_field_values = array();
+      for ($i = 0; $i < count($unresolved_field_values); $i++) {
         if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '|', $field_value)) {
-          $resolved_field_values [$i]= $unresolved_field_values[$i];
+          $resolved_field_values[$i] = $unresolved_field_values[$i];
           continue;
         }
         $prospective_alias = $unresolved_field_values[$i];
-        //print sprintf("%s::%s: Prospective alias: %s\n", get_class($this), __FUNCTION__, $prospective_alias);
+        // Print sprintf("%s::%s: Prospective alias: %s\n", get_class($this), __FUNCTION__, $prospective_alias);
         // This should map to a value in the alias cache.
         $confirmed_alias_with_field = str_replace(self::ALIAS_VALUE_PREFIX, '', $prospective_alias);
         $av_components = explode('/', $confirmed_alias_with_field);
@@ -126,4 +128,5 @@ class AliasCache extends ReferentialCache {
       $values->{$field_name} = implode(', ', $resolved_field_values);
     }
   }
+
 }

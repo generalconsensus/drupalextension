@@ -5,7 +5,6 @@ namespace Drupal\DrupalExtension\Context\Environment\Reader;
 use Behat\Behat\Context\Environment\UninitializedContextEnvironment;
 use Behat\Behat\Context\Environment\ContextEnvironment;
 use Behat\Behat\Context\Reader\ContextReader;
-use Behat\Testwork\Call\Callee;
 use Behat\Testwork\Environment\Environment;
 use Behat\Testwork\Environment\Exception\EnvironmentReadException;
 use Behat\Testwork\Environment\Reader\EnvironmentReader;
@@ -102,26 +101,26 @@ final class Reader implements EnvironmentReader {
     return $callees;
   }
 
-    /**
-     * Reads callees from a specific suite's context.
-     *
-     * @param ContextEnvironment $environment
-     * @param string             $contextClass
-     *
-     * @return Callee[]
-     */
-    private function readContextCallees(ContextEnvironment $environment, $contextClass)
-    {
-        $callees = array();
-        foreach ($this->contextReaders as $loader) {
-            $callees = array_merge(
-                $callees,
-                $loader->readContextCallees($environment, $contextClass)
-            );
-        }
+  /**
+   * Reads callees from a specific suite's context.
+   *
+   * @param ContextEnvironment $environment
+   * @param string $contextClass
+   *
+   * @return Callee[]
+   */
+  private function readContextCallees(ContextEnvironment $environment, $contextClass) {
 
-        return $callees;
+    $callees = array();
+    foreach ($this->contextReaders as $loader) {
+      $callees = array_merge(
+            $callees,
+            $loader->readContextCallees($environment, $contextClass)
+        );
     }
+
+    return $callees;
+  }
 
   /**
    * Finds and loads available subcontext classes.

@@ -1,8 +1,4 @@
 <?php
-/**
- * @file
- * Entity scope.
- */
 namespace Drupal\DrupalExtension\Hook\Scope;
 
 use Behat\Testwork\Hook\Scope\HookScope;
@@ -28,4 +24,5 @@ interface EntityScope extends HookScope {
    * @return StepNode
    */
   public function getEntity();
+
 }

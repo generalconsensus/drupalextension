@@ -1,15 +1,12 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context\Cache;
 /**
  * A simple class to store cached copies of created Drupal items,
  *  with indexing.
  */
 class TermCache extends CacheBase {
+
   /**
    * {@InheritDoc}.
    *
@@ -22,11 +19,12 @@ class TermCache extends CacheBase {
     }
     return taxonomy_term_load($key);
   }
+
   /**
-   * {@InheritDoc}
+   * {@InheritDoc}.
    */
-  public function clean(&$context){
-    if($this->count() === 0){
+  public function clean(&$context) {
+    if ($this->count() === 0) {
       return TRUE;
     }
     foreach ($this->cache as $term) {
@@ -34,4 +32,5 @@ class TermCache extends CacheBase {
     }
     return $this->resetCache();
   }
+
 }

@@ -2,14 +2,17 @@
 
 namespace Drupal\DrupalExtension\Compiler;
 
-use Symfony\Component\DependencyInjection\Reference,
-    Symfony\Component\DependencyInjection\ContainerBuilder,
-    Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\Compiler\CompilerPassInterface;
+use Symfony\Component\DependencyInjection\ContainerBuilder;
+use Symfony\Component\DependencyInjection\Reference;
+// use ContainerBuilder;
+// use CompilerPassInterface;
 
 /**
  * Event subscribers pass - registers all available event subscribers.
  */
 class EventSubscriberPass implements CompilerPassInterface {
+
   /**
    * Processes container.
    *
@@ -30,4 +33,5 @@ class EventSubscriberPass implements CompilerPassInterface {
       }
     }
   }
+
 }

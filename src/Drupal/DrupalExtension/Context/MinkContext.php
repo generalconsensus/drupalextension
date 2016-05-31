@@ -45,6 +45,7 @@ class MinkContext extends MinkExtension implements TranslatableContext {
    * Visit a given path, and additionally check for HTTP response code 200.
    *
    * @Given I am at :path
+   *
    * @When I visit :path
    *
    * @throws UnsupportedDriverActionException
@@ -139,7 +140,8 @@ class MinkContext extends MinkExtension implements TranslatableContext {
   /**
    * @Given I press the :char key in the :field field
    *
-   * @param mixed $char could be either char ('b') or char-code (98)
+   * @param mixed $char
+   *   could be either char ('b') or char-code (98)
    * @throws \Exception
    */
   public function pressKey($char, $field) {
@@ -148,20 +150,20 @@ class MinkContext extends MinkExtension implements TranslatableContext {
       'tab' => 9,
       'enter' => 13,
       'shift' => 16,
-      'ctrl' =>  17,
+      'ctrl' => 17,
       'alt' => 18,
       'pause' => 19,
       'break' => 19,
-      'escape' =>  27,
-      'esc' =>  27,
+      'escape' => 27,
+      'esc' => 27,
       'end' => 35,
-      'home' =>  36,
+      'home' => 36,
       'left' => 37,
       'up' => 38,
-      'right' =>39,
+      'right' => 39,
       'down' => 40,
-      'insert' =>  45,
-      'delete' =>  46,
+      'insert' => 45,
+      'delete' => 46,
       'pageup' => 33,
       'pagedown' => 34,
       'capslock' => 20,
@@ -329,7 +331,7 @@ class MinkContext extends MinkExtension implements TranslatableContext {
   public function assertRegionLinkFollow($link, $region) {
     $regionObj = $this->getRegion($region);
 
-    // Find the link within the region
+    // Find the link within the region.
     $linkObj = $regionObj->findLink($link);
     if (empty($linkObj)) {
       throw new \Exception(sprintf('The link "%s" was not found in the region "%s" on the page %s', $link, $region, $this->getSession()->getCurrentUrl()));
@@ -338,7 +340,7 @@ class MinkContext extends MinkExtension implements TranslatableContext {
   }
 
   /**
-   * Checks, if a button with id|name|title|alt|value exists or not and pressess the same
+   * Checks, if a button with id|name|title|alt|value exists or not and pressess the same.
    *
    * @Given I press :button in the :region( region)
    *
@@ -441,7 +443,7 @@ class MinkContext extends MinkExtension implements TranslatableContext {
   public function assertRegionText($text, $region) {
     $regionObj = $this->getRegion($region);
 
-    // Find the text within the region
+    // Find the text within the region.
     $regionText = $regionObj->getText();
     if (strpos($regionText, $text) === FALSE) {
       throw new \Exception(sprintf("The text '%s' was not found in the region '%s' on the page %s", $text, $region, $this->getSession()->getCurrentUrl()));

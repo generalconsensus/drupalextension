@@ -4,7 +4,6 @@ namespace Drupal\DrupalExtension\Hook\Call;
 
 use Drupal\DrupalExtension\Hook\Scope\TermScope;
 
-
 /**
  * AfterTermCreate hook class.
  */
@@ -13,7 +12,7 @@ class AfterTermCreate extends EntityHook {
   /**
    * Initializes hook.
    */
-  public function __construct($filterString, $callable, $description = null) {
+  public function __construct($filterString, $callable, $description = NULL) {
     parent::__construct(TermScope::AFTER, $filterString, $callable, $description);
   }
 
@@ -23,4 +22,5 @@ class AfterTermCreate extends EntityHook {
   public function getName() {
     return 'AfterTermCreate';
   }
+
 }

@@ -1,13 +1,8 @@
 <?php
-/**
- * @file
- * Entity scope.
- */
 namespace Drupal\DrupalExtension\Hook\Scope;
 
 use Behat\Behat\Context\Context;
 use Behat\Testwork\Environment\Environment;
-use Behat\Testwork\Hook\Scope\HookScope;
 
 /**
  * Represents an Entity hook scope.
@@ -57,16 +52,17 @@ abstract class BaseEntityScope implements EntityScope {
   }
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function getEnvironment() {
     return $this->environment;
   }
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function getSuite() {
     return $this->environment->getSuite();
   }
+
 }

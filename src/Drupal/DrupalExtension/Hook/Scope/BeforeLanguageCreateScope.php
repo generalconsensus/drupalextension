@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\DrupalExtension\Hook\Scope\BeforeLanguageCreateScope.
- */
 namespace Drupal\DrupalExtension\Hook\Scope;
 
 /**

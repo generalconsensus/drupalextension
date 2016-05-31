@@ -3,7 +3,6 @@
 namespace Drupal\DrupalExtension\Context\Annotation;
 
 use Behat\Behat\Context\Annotation\AnnotationReader;
-use Drupal\DrupalExtension\Hook\Dispatcher;
 use ReflectionMethod;
 
 /**
@@ -31,17 +30,17 @@ class Reader implements AnnotationReader {
   );
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public function readCallee($contextClass, ReflectionMethod $method, $docLine, $description) {
 
     if (!preg_match(self::$regex, $docLine, $match)) {
-      return null;
+      return NULL;
     }
 
     $type = strtolower($match[1]);
     $class = self::$classes[$type];
-    $pattern = isset($match[2]) ? $match[2] : null;
+    $pattern = isset($match[2]) ? $match[2] : NULL;
     $callable = array($contextClass, $method->getName());
 
     return new $class($pattern, $callable, $description);

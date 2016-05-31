@@ -1,10 +1,5 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\DrupalExtension\Context\ConfigContext.
- */
-
 namespace Drupal\DrupalExtension\Context;
 
 use Behat\Behat\Context\TranslatableContext;
@@ -16,7 +11,7 @@ use Behat\Gherkin\Node\TableNode;
 class ConfigContext extends RawDrupalContext implements TranslatableContext {
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public static function getTranslationResources() {
     return glob(__DIR__ . '/../../../../i18n/*.xliff');

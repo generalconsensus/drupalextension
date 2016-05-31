@@ -1,10 +1,5 @@
 <?php
 
-/**
- * @file
- * Contains Drupal\behat_test\Plugin\Field\FieldFormatter\AddressFieldFormatter.
- */
-
 namespace Drupal\behat_test\Plugin\Field\FieldFormatter;
 
 use Drupal\Core\Field\FieldDefinitionInterface;

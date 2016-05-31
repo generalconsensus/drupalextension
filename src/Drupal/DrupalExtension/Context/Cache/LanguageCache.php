@@ -1,15 +1,12 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context\Cache;
 /**
  * A simple class to store cached copies of created Drupal items,
  *  with indexing.
  */
 class LanguageCache extends CacheBase {
+
   /**
    * {@InheritDoc}.
    *
@@ -21,16 +18,17 @@ class LanguageCache extends CacheBase {
       throw new \Exception(sprintf("%s::%s: No language result found for key %s", __CLASS__, __FUNCTION__, $key));
     }
     $languages = language_list();
-    if(!isset($languages[$key])){
+    if (!isset($languages[$key])) {
       throw new \Exception(sprintf("%s::%s: No result found for alias %s.  Language list: %s", __CLASS__, __FUNCTION__, $key, print_r(array_keys($languages))));
     }
     return language_list($key);
   }
+
   /**
-   * {@InheritDoc}
+   * {@InheritDoc}.
    */
-  public function clean(&$context){
-    if($this->count() === 0){
+  public function clean(&$context) {
+    if ($this->count() === 0) {
       return TRUE;
     }
     foreach ($this->cache as $term) {
@@ -38,4 +36,5 @@ class LanguageCache extends CacheBase {
     }
     return $this->resetCache();
   }
+
 }

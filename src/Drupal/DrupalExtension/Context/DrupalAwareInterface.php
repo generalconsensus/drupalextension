@@ -6,8 +6,10 @@ use Behat\Behat\Context\Context;
 use Behat\Testwork\Hook\HookDispatcher;
 
 use Drupal\DrupalDriverManager;
-use Symfony\Component\EventDispatcher\EventDispatcher;
 
+/**
+ *
+ */
 interface DrupalAwareInterface extends Context {
 
   /**
@@ -31,4 +33,5 @@ interface DrupalAwareInterface extends Context {
    * @param array $parameters
    */
   public function setDrupalParameters(array $parameters);
+
 }

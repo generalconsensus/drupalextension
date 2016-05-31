@@ -6,13 +6,16 @@ use Behat\Mink\Selector\SelectorInterface;
 use Behat\Mink\Selector\CssSelector;
 
 /**
- * Custom "region" selector to help select Drupal regions
+ * Custom "region" selector to help select Drupal regions.
  */
 class RegionSelector implements SelectorInterface {
   private $cssSelector;
 
   private $regionMap;
 
+  /**
+   *
+   */
   public function __construct(CssSelector $cssSelector, array $regionMap) {
     $this->cssSelector = $cssSelector;
     $this->regionMap = $regionMap;
@@ -22,7 +25,9 @@ class RegionSelector implements SelectorInterface {
    * Translates provided locator into XPath.
    *
    * @param string $region
+   *
    * @return string
+   *
    * @throws \InvalidArgumentException
    */
   public function translateToXPath($region) {
@@ -33,4 +38,5 @@ class RegionSelector implements SelectorInterface {
 
     return $this->cssSelector->translateToXPath($css);
   }
+
 }

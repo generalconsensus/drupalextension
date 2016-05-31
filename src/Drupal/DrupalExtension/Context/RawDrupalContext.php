@@ -1,29 +1,27 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context;
 
+use Behat\Gherkin\Node\TableNode;
+use Drupal\Driver\DrupalDriver;
+use Behat\Behat\Hook\Scope\AfterScenarioScope;
+use Behat\Behat\Hook\Scope\BeforeScenarioScope;
+use Behat\Behat\Hook\Scope\AfterFeatureScope;
+use Behat\Behat\Hook\Scope\BeforeFeatureScope;
+use Drupal\DrupalExtension\Context\Cache\AliasCache;
+use Drupal\DrupalExtension\Context\Cache\ContextCache;
+use Drupal\DrupalExtension\Context\Cache\RoleCache;
+use Drupal\DrupalExtension\Context\Cache\TermCache;
+use Drupal\DrupalExtension\Context\Cache\LanguageCache;
+use Drupal\DrupalExtension\Context\Cache\NodeCache;
+use Drupal\DrupalExtension\Context\Cache\UserCache;
 use Behat\MinkExtension\Context\RawMinkContext;
 use Behat\Mink\Exception\DriverException;
 use Behat\Testwork\Hook\HookDispatcher;
-use Behat\Mink\Element\Element;
 
 use Drupal\DrupalDriverManager;
 
-use Drupal\DrupalExtension\Hook\Scope\AfterLanguageEnableScope;
-use Drupal\DrupalExtension\Hook\Scope\AfterNodeCreateScope;
-use Drupal\DrupalExtension\Hook\Scope\AfterTermCreateScope;
-use Drupal\DrupalExtension\Hook\Scope\AfterUserCreateScope;
-use Drupal\DrupalExtension\Hook\Scope\BaseEntityScope;
-use Drupal\DrupalExtension\Hook\Scope\BeforeLanguageEnableScope;
 use Drupal\DrupalExtension\Hook\Scope\BeforeNodeCreateScope;
-use Drupal\DrupalExtension\Hook\Scope\BeforeUserCreateScope;
-use Drupal\DrupalExtension\Hook\Scope\BeforeTermCreateScope;
-use Drupal\DrupalExtension\Context\Cache as ExtensionCache;
-
 
 /**
  * Provides the raw functionality for interacting with Drupal.
@@ -129,6 +127,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @var boolean
    */
   protected static $scenario_static_initialized = FALSE;
+
   /**
    * Initializes the cache objects, which are static. This must be done once
    * in a feature.
@@ -137,18 +136,19 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   protected static function initializeCaches() {
     if (!self::$caches_initialized) {
-      self::$users = new ExtensionCache\UserCache();
+      self::$users = new UserCache();
       self::$users->addIndices('roles', 'name');
-      self::$nodes = new ExtensionCache\NodeCache();
+      self::$nodes = new NodeCache();
       self::$nodes->addIndices('type');
-      self::$languages = new ExtensionCache\LanguageCache();
-      self::$terms = new ExtensionCache\TermCache();
-      self::$roles = new ExtensionCache\RoleCache();
-      self::$contexts = new ExtensionCache\ContextCache();
-      self::$aliases = new ExtensionCache\AliasCache(array('users' => &self::$users, 'nodes' => &self::$nodes));
+      self::$languages = new LanguageCache();
+      self::$terms = new TermCache();
+      self::$roles = new RoleCache();
+      self::$contexts = new ContextCache();
+      self::$aliases = new AliasCache(array('users' => &self::$users, 'nodes' => &self::$nodes));
       self::$caches_initialized = TRUE;
     }
   }
+
   /**
    * Clears the contents of all the (non-context) caches. This should be done
    * after every scenario, and upon exit (normally, or via interruption).
@@ -168,6 +168,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$scenario_static_initialized = FALSE;
     }
   }
+
   /**
    * Destroys all cache objects.  This should be done between features, and
    * upon exiting (normally or via interruption.).
@@ -194,9 +195,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   the behat surrounding scope
    * @return NULL
    */
-  public static function beforeFeature(\Behat\Behat\Hook\Scope\BeforeFeatureScope $scope) {
+  public static function beforeFeature(BeforeFeatureScope $scope) {
     self::initializeCaches();
   }
+
   /**
    * @AfterFeature
    *
@@ -207,9 +209,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   the behat surrounding scope
    * @return NULL
    */
-  public static function afterFeature(\Behat\Behat\Hook\Scope\AfterFeatureScope $scope) {
+  public static function afterFeature(AfterFeatureScope $scope) {
     self::destroyCaches();
   }
+
   /**
    * @BeforeScenario
    *
@@ -220,7 +223,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   [description]
    * @return [type]                                                       [description]
    */
-  public function beforeScenario(\Behat\Behat\Hook\Scope\BeforeScenarioScope $scope) {
+  public function beforeScenario(BeforeScenarioScope $scope) {
     if (!self::$scenario_static_initialized) {
       $environment = $scope->getEnvironment();
       $settings    = $environment->getSuite()->getSettings();
@@ -231,6 +234,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       self::$scenario_static_initialized = TRUE;
     }
   }
+
   /**
    * @AfterScenario
    * Cleans all the cache objects.  This has the side effect of cleaning
@@ -239,7 +243,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * TODO: This approach assumes all context scenarios end at the same time.
    * Revisit to ensure this is a valid assumption.
    */
-  public function afterScenario(\Behat\Behat\Hook\Scope\AfterScenarioScope $scope) {
+  public function afterScenario(AfterScenarioScope $scope) {
     self::clearCaches();
   }
 
@@ -253,6 +257,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public static function getTranslationResources() {
     return glob(__DIR__ . '/../../../../i18n/*.xliff');
   }
+
   /**
    * Utility function to create a node quickly and easily.
    *
@@ -266,7 +271,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // Create a serializable index from the unique values.
     // Assign defaults where possible.
     $values = $values + array(
-      'body' => $this->getDriver()->getRandom()->string(255)
+      'body' => $this->getDriver()->getRandom()->string(255),
     );
     $values = (object) $values;
     $saved = $this->nodeCreate($values);
@@ -296,15 +301,16 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // }
     // Assign defaults where possible.
     $values = $values + array(
-        'name' => $this->getDriver()->getRandom()->name(8),
-        'pass' => $this->getDriver()->getRandom()->name(16),
-        'roles' => ''
-      );
+      'name' => $this->getDriver()->getRandom()->name(8),
+      'pass' => $this->getDriver()->getRandom()->name(16),
+      'roles' => '',
+    );
     $values['mail'] = "$values[name]@example.com";
     $values = (object) $values;
     $saved = $this->userCreate($values);
     return $saved;
   }
+
   /**
    * {@inheritDoc}.
    */
@@ -318,7 +324,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function getDrupal() {
     return $this->drupal;
   }
-
 
   /**
    * {@inheritDoc}.
@@ -400,7 +405,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // using e.g. the BlackBoxDriver or DrushDriver.
     $api_version = NULL;
     $driver = $scope->getContext()->getDrupal()->getDriver();
-    if ($driver instanceof \Drupal\Driver\DrupalDriver) {
+    if ($driver instanceof DrupalDriver) {
       $api_version = $scope->getContext()->getDrupal()->getDriver()->version;
     }
 
@@ -525,6 +530,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       $entity->$field_name = $columns;
     }
   }
+
   /**
    * Prints the cache contents of each cache.  For debugging only.
    * TODO: Possibly should be private - revisit.
@@ -554,6 +560,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     print (self::$$cache_name) . "\n";
 
   }
+
   /**
    * Returns an object that has been previously created and assigned a given
    * alias (using the @ symbol in a feature table.).
@@ -582,6 +589,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function resolveAlias($alias) {
     return self::$aliases->get($alias);
   }
+
   /**
    *
    */
@@ -603,6 +611,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       throw new \Exception(sprintf("%s::%s line %s: The alias %s was not found. %s", get_class($this), __FUNCTION__, __LINE__, $alias, $e->getMessage()));
     }
   }
+
   /**
    * Create a user.
    *
@@ -613,7 +622,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (is_array($user)) {
       $user = (object) $user;
     }
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($user);
+    $named_alias = AliasCache::extractAliasKey($user);
     self::$aliases->convertAliasValues($user);
     $this->dispatchHooks('BeforeUserCreateScope', $user);
     $this->parseEntityFields('user', $user);
@@ -631,6 +640,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return $user;
   }
+
   /**
    * Alter an existing user. WARNING: This function is not currently part of
    * the interface. An argument needs to be constructed for its addition. Note
@@ -651,7 +661,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       throw new \Exception(sprintf("%s::%s: user argument does not appear to be a valid loaded drupal node!  Load result: %s", get_class($this), __FUNCTION__, print_r($node, TRUE)));
     }
     $values = (object) $values;
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($values);
+    $named_alias = AliasCache::extractAliasKey($values);
     if (!empty($named_alias)) {
       throw new \Exception(sprintf("%s::%s line %s: Alias keys are not allowed in alteration steps.", get_class($this), __FUNCTION__, __LINE__));
     }
@@ -661,6 +671,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     return $user;
 
   }
+
   /**
    * Create a node.
    *
@@ -671,7 +682,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (is_array($node)) {
       $node = (object) $node;
     }
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($node);
+    $named_alias = AliasCache::extractAliasKey($node);
     self::$aliases->convertAliasValues($node);
     $this->dispatchHooks('BeforeNodeCreateScope', $node);
     $this->parseEntityFields('node', $node);
@@ -685,6 +696,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return $node;
   }
+
   /**
    * Alter an existing node. WARNING: This function is not currently part of
    * the interface. An argument needs to be constructed for its addition. Note
@@ -705,7 +717,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       throw new \Exception(sprintf("%s::%s: Node argument does not appear to be a valid loaded drupal node!  Load result: %s", get_class($this), __FUNCTION__, print_r($node, TRUE)));
     }
     $values = (object) $values;
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($values);
+    $named_alias = AliasCache::extractAliasKey($values);
     if (!empty($named_alias)) {
       throw new \Exception(sprintf("%s::%s line %s: Alias keys are not allowed in alteration steps.", get_class($this), __FUNCTION__, __LINE__));
     }
@@ -717,8 +729,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // 1) resolving values for differing field types
     // 2) resolving alias changes (for aliases as defined by this class)
     // 3) resolving changes to immutable values.
-
   }
+
   /**
    * Create a term. Note: does this deal with multiple taxonomies? It
    * doesn't appear so.
@@ -727,7 +739,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created term.
    */
   public function termCreate($term) {
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($term);
+    $named_alias = AliasCache::extractAliasKey($term);
     if (!is_null($named_alias)) {
       throw new \Exception(sprintf('%s::%s: Aliasing for terms is not yet supported', get_class($this), __FUNCTION__));
     }
@@ -738,6 +750,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $term_primary_key = self::$terms->add($term);
     return $saved;
   }
+
   /**
    * Extracted from DrupalContext's assertLoggedInWithPermissions,
    * this moves the functionality of creating a possibly shared role
@@ -749,7 +762,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return int              The role id of the newly created role.
    */
   public function roleCreate($permissions) {
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($permissions);
+    $named_alias = AliasCache::extractAliasKey($permissions);
     if (!is_null($named_alias)) {
       throw new \Exception(sprintf('%s::%s: Aliasing for roles is not yet supported', get_class($this), __FUNCTION__));
     }
@@ -760,6 +773,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $role_primary_key = self::$roles->add($role);
     return $role_name;
   }
+
   /**
    * Creates a language.
    *
@@ -771,7 +785,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created language, or FALSE if the language was already created.
    */
   public function languageCreate(\stdClass $language) {
-    $named_alias = ExtensionCache\AliasCache::extractAliasKey($role);
+    $named_alias = AliasCache::extractAliasKey($role);
     if (!is_null($named_alias)) {
       throw new \Exception(sprintf('%s::%s: Aliasing for languages is not yet supported', get_class($this), __FUNCTION__));
     }
@@ -801,6 +815,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return reset($results);
   }
+
   /**
    * Returns the currently logged in user.
    *
@@ -847,9 +862,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
     // Log in.
     $submit->click();
-    //$user->roles = array_diff($user->roles, array('authenticated user'));
+    // $user->roles = array_diff($user->roles, array('authenticated user'));.
     if (!$this->loggedIn()) {
-      fwrite(STDOUT, "Failed to login as user:".print_r($user, TRUE));
+      fwrite(STDOUT, "Failed to login as user:" . print_r($user, TRUE));
       $this->callContext('Drupal', 'iPutABreakpoint');
       throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role(s) '%s'", get_class($this), __FUNCTION__, $user->name, implode(", ", $user->roles)));
     }
@@ -972,6 +987,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $args = array_slice(func_get_args(), 2);
     return call_user_func_array(array($other_context, $method), $args);
   }
+
   /**
    * Utility function to convert a tableNode to an array.  TableNodes
    * are immutable, so I can't directly modify them.  This function
@@ -983,10 +999,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @return array           An array of the tablenode results. Returns an empty
    *                            array if the passed table is null or empty.
    */
-  public static function convertTableNodeToArray(\Behat\Gherkin\Node\TableNode $table=NULL, $arrangement = 'row') {
+  public static function convertTableNodeToArray(TableNode $table = NULL, $arrangement = 'row') {
 
     $values = array();
-    if(is_null($table)){
+    if (is_null($table)) {
       return $values;
     }
     // As far as I can tell, tableNodes are immutable.  Need to step
@@ -1002,9 +1018,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
       case 'column':
       case 'columns':
-      foreach ($table->getColumnsHash() as $field => $value) {
+        foreach ($table->getColumnsHash() as $field => $value) {
           $values[$field] = $value;
-      }
+        }
         break;
 
       default:
@@ -1013,6 +1029,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     return $values;
   }
+
   /**
    * Retrieve a table row containing specified text from a given element.
    * Note: moved from DrupalContext to consolidate non-step-defining functions.

@@ -1,9 +1,5 @@
 <?php
 
-/**
- * @file
- */
-
 namespace Drupal\DrupalExtension\Context\Cache;
 /**
  * A simple class to store cached copies of created Drupal items,
@@ -22,6 +18,7 @@ class UserCache extends CacheBase {
    * @var null
    */
   private $metadata = NULL;
+
   /**
    * Constructor.
    */
@@ -29,6 +26,7 @@ class UserCache extends CacheBase {
     parent::__construct();
     $this->metadata = new \stdClass();
   }
+
   /**
    * {@InheritDoc}.
    *
@@ -42,11 +40,12 @@ class UserCache extends CacheBase {
       throw new \Exception(sprintf("%s::%s: A user object must be passed to the add method for this cache..", get_class($this), __FUNCTION__));
     }
     $metadata = array(
-      'pass' => $value->pass
+      'pass' => $value->pass,
     );
     $this->addMetaData($index, $metadata);
     return parent::add($index);
   }
+
   /**
    * Adds metadata about a stored cache item.  User metadata is data that
    * cannot be retrieved when retrieving the user object.
@@ -64,6 +63,7 @@ class UserCache extends CacheBase {
     $index = strval($index);
     $this->metadata->{$index} = (object) $metadata;
   }
+
   /**
    * Adds metadata about a stored cache item.  User metadata is data that
    * cannot be retrieved when retrieving the user object.
@@ -85,6 +85,7 @@ class UserCache extends CacheBase {
     }
     return $this->metadata->{$index}->{$key};
   }
+
   /**
    * {@InheritDoc}.
    *
@@ -102,6 +103,7 @@ class UserCache extends CacheBase {
     $user->pass = $this->getMetaData($user->uid, 'pass');
     return $user;
   }
+
   /**
    * {@InheritDoc}.
    */
@@ -135,6 +137,7 @@ class UserCache extends CacheBase {
     }
     return $matches;
   }
+
   /**
    * {@InheritDoc}.
    */
@@ -143,7 +146,7 @@ class UserCache extends CacheBase {
       return TRUE;
     }
     $uids = array_keys(get_object_vars($this->cache));
-    user_delete_multiple($uids);
+    $context->getDriver()->userDeleteMultiple($uids);
     $this->resetCache();
     return TRUE;
   }

@@ -1,13 +1,7 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\DrupalExtension\Context\DrupalSubContextBase.
- */
-
 namespace Drupal\DrupalExtension\Context;
 
-use Behat\Behat\Context\Environment\InitializedContextEnvironment;
 use Drupal\DrupalDriverManager;
 
 /**

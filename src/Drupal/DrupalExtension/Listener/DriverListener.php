@@ -31,13 +31,16 @@ class DriverListener implements EventSubscriberInterface {
    */
   private $parameters;
 
+  /**
+   *
+   */
   public function __construct(DrupalDriverManager $drupal, array $parameters) {
     $this->drupal = $drupal;
     $this->parameters = $parameters;
   }
 
   /**
-   * {@inheritDoc}
+   * {@inheritDoc}.
    */
   public static function getSubscribedEvents() {
     return array(

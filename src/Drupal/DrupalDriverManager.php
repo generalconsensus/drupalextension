@@ -1,10 +1,5 @@
 <?php
 
-/**
- * @file
- * Contains \Drupal\DrupalDriverManager.
- */
-
 namespace Drupal;
 
 use Behat\Testwork\Environment\Environment;

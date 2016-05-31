@@ -33,7 +33,7 @@ class MarkupContext extends RawMinkContext {
   }
 
   /**
-   * Checks if a button with id|name|title|alt|value exists in a region
+   * Checks if a button with id|name|title|alt|value exists in a region.
    *
    * @Then I should see the button :button in the :region( region)
    * @Then I should see the :button button in the :region( region)
@@ -191,4 +191,5 @@ class MarkupContext extends RawMinkContext {
       }
     }
   }
+
 }

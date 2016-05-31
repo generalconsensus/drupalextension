@@ -12,7 +12,7 @@ class BeforeTermCreate extends EntityHook {
   /**
    * Initializes hook.
    */
-  public function __construct($filterString, $callable, $description = null) {
+  public function __construct($filterString, $callable, $description = NULL) {
     parent::__construct(TermScope::BEFORE, $filterString, $callable, $description);
   }
 
@@ -22,4 +22,5 @@ class BeforeTermCreate extends EntityHook {
   public function getName() {
     return 'BeforeTermCreate';
   }
+
 }
