@@ -25,73 +25,71 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
 
   /**
    * Creates a user.
-   * A note on aliases:.
    *
    * @param TableNode $table
-   *   The field information for the new user.
+   *   The field information for the new user. Data provided in the form:
+   *   | name      | Example user     |
+   *   | mail      | user@example.com |
+   *   | status    | 1                |
+   *   | @         | test_user        |
+   *   The field name @ is a special value that assigns the field value
+   *   as an alias for the object, so it can be retrieved with later tests.
+   *   If no name is explicitly specified, this alias is also set to be the
+   *   name of the created user.
+   *   A field value starting with @:, followed by an alias and a field name
+   *    (e.g. @:test_user/uid) will be translated at runtime to the actual
+   *    value of the aliased item.  In this manner, field values of earler
+   *    objects not known until after creation can be populated into the fields
+   *    of subsequent objects.
    *
-   * @return object $user The created drupal user.
-   *
-   * Definition for steps:
+   * @return object $user
+   *   The created drupal user.
    *
    * @Given the user:
-   *
-   * Data provided in the form:
-   * | name      | Example user     |
-   * | mail      | user@example.com |
-   * | status    | 1                |
-   * | @         | test_user        |
    */
   public function theUser(TableNode $table) {
     $options = self::convertTableNodeToArray($table);
-    return $this->_createUser($options);
+    return $this->createDefaultUser($options);
   }
 
   /**
-   * Convenience step to demonstrate how aliasing works. The @ symbol
-   * above is special syntax that defines an 'alias' for a given creation. You
-   * can retrieve aliased entries during subsequent steps for modification or
-   * deletion.  See `resolveAlias` in RawDrupalContext for more information.
+   * Convenience step to demonstrate how aliasing works.
    *
-   * @param string $aliasThe
-   *   alias you wish to assign to the new user
-   *   The alias you wish to assign to the new user
+   * The @ symbol above is special syntax that defines an 'alias' for a given
+   * creation. You can retrieve aliased entries during subsequent steps for
+   * modification or deletion. See `resolveAlias` in RawDrupalContext for more
+   * information.
+   *
+   * @param string $alias
+   *   The alias you wish to assign to the new user.
    * @param TableNode $table
-   *   The field information for the new user.  Note: any
-   *                         alias passed in the table will be overwritten by
-   *                         the one passed for $alias - There is no multiple
-   *                         assignation occurring.
+   *   The field information for the new user.
+   *   Data provided in the form:
+   *   | name      | Example user     |
+   *   | mail      | user@example.com |
+   *   | status    | 1                |
+   *   This method accepts aliases and aliased values. See theUser for more
+   *   information.
    *
-   * @return object $user The created drupal user.
-   *
-   * Definition for steps:
+   * @return object $user
+   *   The created drupal user.
    *
    * @Given the user with alias :alias:
-   *
-   * Data provided in the form:
-   * | name      | Example user     |
-   * | mail      | user@example.com |
-   * | status    | 1                |
-   * | @         | test_user        |
    */
   public function theAliasedUser($alias, TableNode $table) {
     $options = self::convertTableNodeToArray($table);
     $options['@'] = $alias;
-    return $this->_createUser($options);
+    return $this->createDefaultUser($options);
   }
 
   /**
    * Retrives a previously created (and aliased) user from the database.
+   *
    * Aliases are established using the @ symbol in the table data.  See
    * 'Given the user' step for more information.
    *
    * @param string $alias
-   *   The named alias assigned to the user when they
-   *                       were created.
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   *   The named alias assigned to the user when they were created.
    *
    * @Given I am the named user :alias
    */
@@ -103,20 +101,16 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   /**
    * Creates a new user and logs them in.
    *
-   * @param string $table
-   *   A table of data that defines the new user
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   * @param TableNode $table
+   *   A table of data that defines the new user. Data provided in the form:
+   *   | name      | Example user     |
+   *   | mail      | user@example.com |
+   *   | status    | 1                |
+   *   | ...       | ...              |
+   *   This method accepts aliases and aliased values. See theUser for more
+   *   information.
    *
    * @Given I am the user:
-   *
-   * Data provided in the form:
-   * | name      | Example user     |
-   * | mail      | user@example.com |
-   * | status    | 1                |
-   * | ...       | ...              |
    */
   public function iAmTheUser(TableNode $table) {
     $user = $this->theUser($table);
@@ -129,10 +123,6 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @param string $roles
    *   A comma-separated list of roles for the new user.
    *
-   * @return NULL
-   *
-   * Definition for steps:
-   *
    * @Given I am logged in as a user with the :role role(s)
    * @Given I am a user with the :role role(s)
    * @Given I am logged in as a/an :role
@@ -141,7 +131,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     if ($this->loggedInWithRoles($roles)) {
       return TRUE;
     }
-    $user = $this->_createUser(array('roles' => $roles));
+    $user = $this->createDefaultUser(array('roles' => $roles));
     $this->login($user);
   }
 
@@ -150,19 +140,17 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *
    * @param string $role
    *   A comma-separated list of roles for the new user.
-   * @param string $fields
-   *   A table of data that defines the new user
+   * @param TableNode $fields
+   *   A table of data that defines the new user.
+   *   Data provided in the form:
+   *   | field_user_name     | John  |
+   *   | field_user_surname  | Smith |
+   *   | ...                 | ...   |
+   *   This method accepts aliases and aliased values. See theUser for more
+   *   information.
    *
-   * @return NULL
-   *
-   * Definition for steps:
-   *
-   * @Given I am logged in as a user with the :role role(s) and I have the following fields:
-   *
-   * Data provided in the form:
-   * | field_user_name     | John  |
-   * | field_user_surname  | Smith |
-   * | ...                 | ...   |.
+   * @Given I am logged in as a user with the :role role(s) and I have the
+   * following fields:
    */
   public function assertAuthenticatedByRoleWithGivenFields($role, TableNode $fields) {
     // Check if a user with this role is already logged in.
@@ -173,7 +161,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       foreach ($fields->getRowsHash() as $field => $value) {
         $values[$field] = $value;
       }
-      $user = $this->_createUser($values);
+      $user = $this->createDefaultUser($values);
 
       // Login.
       $this->login($user);
@@ -184,18 +172,13 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates and logs in a user with the given permission set.
    *
    * @param string $permissions
-   *   A comma-separated list of permissions for
-   *                            the newly defined user.
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   *   A comma-separated list of permissions for the newly defined user.
    *
    * @Given I am logged in as a user with the :permissions permission(s)
    */
   public function assertLoggedInWithPermissions($permissions) {
     // Create user.
-    $user = $this->_createUser();
+    $user = $this->createDefaultUser();
 
     // Create and assign a temporary role with given permissions.
     $permissions = explode(',', $permissions);
@@ -210,14 +193,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Find text in a table row containing given text.
    *
    * @param string $text
-   *   The visible text we are searching for
+   *   The visible text we are searching for.
    * @param string $rowText
-   *   Some text within a table row that also contains the
-   *                         link.
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   *   Some text within a table row that also contains the link.
    *
    * @Then I should see (the text ):text in the :rowText row
    */
@@ -232,19 +210,15 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
-   * Attempts to find a link in a table row containing giving text. This is for
-   * administrative pages such as the administer content types screen found at
-   * `admin/structure/types`.
+   * Attempts to find a link in a table row containing giving text.
+   *
+   * This is for administrative pages such as the administer content types
+   * screen found at `admin/structure/types`.
    *
    * @param string $link
-   *   The visible text for a given link tag
+   *   The visible text for a given link tag.
    * @param string $rowText
-   *   Some text within a table row that also contains the
-   *                         link.
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   *   Some text within a table row that also contains the link.
    *
    * @Given I click :link in the :rowText row
    *
@@ -261,7 +235,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
-   * Definition for steps:.
+   * Cleares the driver cache.
    *
    * @Given the cache has been cleared
    */
@@ -270,7 +244,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
-   * Definition for steps:.
+   * Runs Cron.
    *
    * @Given I run cron
    */
@@ -282,13 +256,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates content of the given type.
    *
    * @param string $type
-   *   The node (bundle) type to create
+   *   The node (bundle) type to create.
    * @param string $title
-   *   The title of the newly created node
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   *   The title of the newly created node.
    *
    * @Given I am viewing a/an :type (content )with the title :title
    * @Given a/an :type (content )with the title :title
@@ -307,13 +277,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates content authored by the current user.
    *
    * @param string $type
-   *   The node (bundle) type to create
+   *   The node (bundle) type to create.
    * @param string $title
-   *   The title of the newly created node
-   *
-   * @return NULL
-   *
-   * Definition for steps:
+   *   The title of the newly created node.
    *
    * @Given I am viewing my :type (content )with the title :title
    */
@@ -337,16 +303,23 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates content of a given type.
    *
    * @param string $type
-   *   The node (bundle) type to view
-   * @param TableNode $fields
-   *   The field data defining the node we are to view.
+   *   The node (bundle) type to view.
+   * @param TableNode $nodesTable
+   *   The field data defining the node we are to view, in a row-centric
+   *   format.
+   *   Data provided in the form:
+   *   | title    | author     | status | created           |
+   *   | My title | Joe Editor | 1      | 2014-10-17 8:00am |
+   *   | ...      | ...        | ...    | ...               |
+   *   This method accepts aliases and aliased values. See theUser for more
+   *   information. Note that in this case (row-centric data), aliases would be
+   *   assigned in a header row, e.g.:
+   *   | title      | status | @           | my_entity_reference_field |
+   *   | My title   | 1      | test_node   |                           |
+   *   | My title 2 | 1      | test_node2  | @:test_node/nid           |
+   *   .
    *
    * @Given :type content:
-   *
-   * Data provided in the form:
-   * | title    | author     | status | created           |
-   * | My title | Joe Editor | 1      | 2014-10-17 8:00am |
-   * | ...      | ...        | ...    | ...               |.
    */
   public function createNodes($type, TableNode $nodesTable) {
     foreach ($nodesTable->getHash() as $nodeHash) {
@@ -359,18 +332,18 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Creates content of the given type.
    *
    * @param string $type
-   *   The node (bundle) type to view
+   *   The node (bundle) type to view.
    * @param TableNode $fields
    *   The field data defining the node we are to view.
+   *   Data provided in the form:
+   *   | title     | My node        |
+   *   | Field One | My field value |
+   *   | author    | Joe Editor     |
+   *   | status    | 1              |
+   *   | ...       | ...            |
+   *   .
    *
    * @Given I am viewing a/an :type( content):
-   *
-   * Data provided in the form:
-   * | title     | My node        |
-   * | Field One | My field value |
-   * | author    | Joe Editor     |
-   * | status    | 1              |
-   * | ...       | ...            |.
    */
   public function assertViewingNode($type, TableNode $fields) {
     $values = array(
@@ -530,33 +503,43 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
-   * Pauses the scenario until the user presses a key. Useful when debugging a scenario.
+   * Pauses the scenario.
    *
-   * @return NULL
+   * Function will pause the scenario until the user presses a key. Useful when
+   * debugging a scenario.  Also includes the 'q' command to exit further
+   * scenario execution, instead of continuing.
    *
-   * Definition for steps:
+   * Note: this method signature is altered from earlier versions, to conform
+   * with Drupal coding standards.
    *
    * @Then (I )break
    */
-    public function iPutABreakpoint()
-    {
-      fwrite(STDOUT, "\033[s \033[93m[Breakpoint] Press \033[1;93m[RETURN]\033[0;93m to continue, or 'q' to quit...\033[0m");
-      do {
-        $line = trim(fgets(STDIN, 1024));
-        //Note: this assumes ASCII encoding.  Should probably be revamped to
-        //handle other character sets.
-        $charCode = ord($line);
-        switch($charCode){
-          case 0: //CR
-          case 121: //y
-          case 89: //Y
-            break 2;
-          // case 78: //N
-          // case 110: //n
-          case 113: //q
-          case 81: //Q
-            throw new \Exception("Exiting test intentionally.");
-          default:
+  public function iPutAbreakpoint() {
+
+    fwrite(STDOUT, "\033[s \033[93m[Breakpoint] Press \033[1;93m[RETURN]\033[0;93m to continue, or 'q' to quit...\033[0m");
+    do {
+      $line = trim(fgets(STDIN, 1024));
+      // Note: this assumes ASCII encoding.  Should probably be revamped to
+      // handle other character sets.
+      $charCode = ord($line);
+      switch ($charCode) {
+        // CR.
+        case 0:
+          // Y.
+          case 121:
+          // Y.
+          case 89:
+          break 2;
+
+        // Case 78: //N
+        // case 110: //n
+        // q.
+        case 113:
+          // Q.
+          case 81:
+          throw new \Exception("Exiting test intentionally.");
+
+        default:
             fwrite(STDOUT, sprintf("\nInvalid entry '%s'.  Please enter 'y', 'q', or the enter key.\n", $line));
           break;
       }
@@ -565,13 +548,15 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
+   * Prints the aliased value to the console.
+   *
    * Retrieves the provided aliased object, and prints the value of the
    * indicated field.
    *
    * @param string $aliasfield
    *   An alias/field combination to display.  Entry
    *   must be of the form '@:' + alias_name + '/' + field_name, e.g.:
-   *   '@:test_user/uid'
+   *   '@:test_user/uid'.
    *
    * @Given I debug the alias( value) :alias
    */
@@ -595,11 +580,14 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
-   * Retrieves the aliased object, and prints it to the console. For debugging
-   * purposes.
+   * Retrieves the aliased object, and prints it to the console.
+   *
+   * For debugging purposes.  Optionally expands the value of the fields in
+   * the $fields argument.  This is for viewing the entire object - to focus
+   * on a single field value, the debugAliasValue method might be preferable.
    *
    * @param string $alias
-   *   The named alias of an already-created object
+   *   The named alias of an already-created object.
    * @param string $field
    *   (optional) The additional name of a field whose
    *   array/object value should be expanded (such types are collapsed by
@@ -610,7 +598,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Given I debug the object( named) :alias and expand the value(s) of :field
    * @Given I debug the object( named) :alias and expand the field(s) :field
    */
-  public function whenIDebugTheObjectNamed($alias, $field = NULL) {
+  public function whenIdebugTheObjectNamed($alias, $field = NULL) {
 
     $object = $this->resolveAlias($alias);
     if (empty($object)) {
@@ -650,8 +638,8 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * Provides a high level overview of cache state for debugging purposes.
    *
    * @param string $cache_name
-   *   The name of the cache to inspect, or 'all',
-   *                            to display the contents of all the caches.
+   *   The name of the cache to inspect, or 'all', to display the contents of
+   *   all the caches.
    *
    * @Given I show/inspect the :cache_name cache
    * @Given I show/inspect the cache :cache_name
