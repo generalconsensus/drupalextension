@@ -422,7 +422,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    */
   public function createUsers(TableNode $usersTable) {
     foreach ($usersTable->getHash() as $userHash) {
-      $this->theUser($userHash);
+      $this->createDefaultUser($userHash);
     }
   }
 
