@@ -316,7 +316,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $values = $values + array(
       'name' => $this->getDriver()->getRandom()->name(8),
       'pass' => $this->getDriver()->getRandom()->name(16),
-      'roles' => '',
+      'roles' => 'authenticated user',
     );
     $values['mail'] = "$values[name]@example.com";
     $values = (object) $values;
