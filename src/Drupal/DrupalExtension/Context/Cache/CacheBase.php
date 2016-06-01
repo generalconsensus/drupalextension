@@ -1,31 +1,28 @@
 <?php
 
 namespace Drupal\DrupalExtension\Context\Cache;
+
+use Behat\Behat\Context\TranslatableContext as Context;
+
 /**
+ * The base implementation for DrupalContext Caching.
+ *
  * A simple class to store cached copies of created Drupal items,
  *  with indexing.  Note: not all interface methods are implemented!  It
  *  is up to the subclass to fill in the blanks.
  */
 abstract class CacheBase implements CacheInterface {
-  // Primary key by which content is indexed.  SHould be a field value.
-  // One can also set by an arbitrary index value.  See the add method for
-  // more information.
-  protected $primary_key = NULL;
   // Stores actual copies of cached items.  Using stdclass to allow
   // "string" integer keys.
   protected $cache = NULL;
-  // A map with strings as keys, and cache indices as values.  The key
-  // is usually the value of $this->primary_key (not defined in this
-  // abstract class), or the value of 'key' when an arbitrary string
-  // needs to be used for indexing purposes.  In the case of the latter,
-  // it is up to the caller to ensure uniqueness of the key, and to only add
-  // with the 'key' option for any entries of that type.
-  // protected $hash = new \stdClass();
-  // A map with serialized field values as keys, and cache indices as values.
-  // (more than one of a given serialized field value is possible).  This
-  // is structured as:
-  //  $indices (stdClass) -> [index name (stdClass))] -> [index key (array)] ->
-  //    [values (string indices)].
+  // A map with strings as keys, and cache indices as values.  This supplements
+  // the basic caching mechanism with a secondary one that allows referring to
+  // specific ids within this cache by other names - secondary or even  tertiary
+  // indexes. The key is usually the value of the primary key of the created
+  // drupal object, or the value of 'key' when an arbitrary string needs to be
+  // used for indexing purposes.  In the case of the latter, it is up to the
+  // caller to ensure uniqueness of the key, and to only add with the 'key'
+  // option for any entries of that type.
   protected $indices = NULL;
 
   /**
@@ -35,18 +32,15 @@ abstract class CacheBase implements CacheInterface {
     // Print "Constructing ".get_class($this) ."\n";.
     $this->cache = new \stdClass();
     $this->indices = new \stdClass();
-    if (!is_null($this->primary_key)) {
-      $this->addIndices($this->primary_key);
-    }
     $this->resetCache();
   }
 
   /**
-   * Can only be called internally by the clean method, as that method does
+   * Resets cache storage.
+   *
+   * Should only be called internally by the clean method, as that method does
    * db cleanup as a side-effect before calling, which would otherwise not
    * be accomplished.
-   *
-   * @return NULL
    */
   protected function resetCache() {
     $this->cache = new \stdClass();
@@ -67,7 +61,8 @@ abstract class CacheBase implements CacheInterface {
   /**
    * Provides a list of the keys assigned to objects in this cache.
    *
-   * @return array an array of string keys.
+   * @return array
+   *   An array of string keys.
    */
   protected function getCacheIndicies() {
     return array_keys(get_object_vars($this->cache));
@@ -81,7 +76,6 @@ abstract class CacheBase implements CacheInterface {
     if (empty($named_indices)) {
       throw new \Exception(sprintf("%s:: No arguments passed to %s function", get_class($this), __FUNCTION__));
     }
-    // Print "Adding index " . implode(',', $named_indices) . " to ".get_class($this)."\n";
     foreach ($named_indices as $named_index) {
       if (!property_exists($this->indices, $named_index)) {
         $this->indices->{$named_index} = new \stdClass();
@@ -116,8 +110,14 @@ abstract class CacheBase implements CacheInterface {
   }
 
   /**
-   * This cache does not implement this interface method, and will throw an
-   * exception if called.
+   * Finds an item in the cache that matches the passed values.
+   *
+   * Default behavior does not implement, and throws exception if
+   * invoked in a subclass.  Override as necessary.
+   *
+   * @param array $values
+   *   An array where the keys are property names on the cached object, and
+   *   where values are the property values.
    */
   public function find(array $values = array()) {
     throw new \Exception(sprintf("%s: does not implement the %s method", get_class($this), __FUNCTION__));
@@ -133,6 +133,17 @@ abstract class CacheBase implements CacheInterface {
   /**
    * {@InheritDoc}.
    */
+  public function clean(Context &$context) {
+    if ($this->count() === 0) {
+      return TRUE;
+    }
+    // Do not need to delete contexts; just remove references.
+    return $this->resetCache();
+  }
+
+  /**
+   * {@InheritDoc}.
+   */
   public function remove($key) {
     throw new \Exception(sprintf("%s:: does not implement the %s method %", get_class($this), __FUNCTION__));
   }
@@ -140,21 +151,28 @@ abstract class CacheBase implements CacheInterface {
   /**
    * Returns the item found at the named index.
    *
+   * An index is different than an alias - indices are defined upon cache
+   * creation, and are populated automatically when new items are added.  For
+   * example, a user index might be 'name', in which case the user cache would
+   * need to capture the value of 'name' and store it referencing the user id.
+   *
+   * Example usage: `getIndex('name', 'Fred')`
+   *
    * @param string $index_name
-   *   A known named index items in this cache are stored
-   *                            under
-   * @param string $k
-   *   The value of the index key to search
+   *   A known named index items in this cache are stored under.
+   * @param string $index_key
+   *   The value of the index key to search.
    *
-   * @return array              An array of items stored at the index, or NULL
-   *                                if there was no entry with value $k.
+   * @return array
+   *   An array of items stored at the index, or NULL if there was no entry
+   *   with value $k within the given index.
    *
-   * @throws \Exception If the named index is not valid (which should be known
-   *          before runtime).
+   * @throws \Exception
+   *   If the named index is not valid (which should be known before runtime).
    */
   public function getIndex($index_name, $index_key) {
     if (!property_exists($this->indices, $index_name)) {
-      throw new \Exception(sprintf("%s::%s: Cache %s does not exist! Cache state: %", get_class($this), __FUNCTION__, $index_name, $this));
+      throw new \Exception(sprintf("%s::%s: The index %s does not exist in this cache! Cache state: %", get_class($this), __FUNCTION__, $index_name, $this));
     }
     if (!property_exists($this->indices->{$index_name}, $index_key)) {
       return array();
@@ -175,7 +193,10 @@ abstract class CacheBase implements CacheInterface {
   /**
    * Magic method to display cache contents as a CLI-formatted string.
    *
-   * @return string [description]
+   * @return string
+   *   A cli-formatted string describing the state of the cache, showing
+   *   a list of current keys and indices (but not values, which would
+   *   usually be overly verbose.
    */
   public function __toString() {
     $result = "\n**************************";

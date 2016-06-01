@@ -10,11 +10,16 @@ class AliasCache extends ReferentialCache {
   const ALIAS_VALUE_PREFIX = '@:';
 
   /**
+   * Extracts alias names from the parameters of the passed object.
+   *
    * Looks for a defined alias as a property of the passed object.  Unsets it
-   * if found, and returns whatever the alias stored there is.
+   * if found, and returns whatever the alias stored there is.  Note that
+   * this function ONLY extracts field name keys - field values are handled
+   * by the convertAliasValues function elsewhere in this class.
    *
    * @param object &$o
-   *   An object
+   *   An object containing keys=>values corresponding to field data for
+   *   an object that is soon to be created for testing.
    *
    * @return string|NULL
    *         The string alias if one was found, or NULL if no alias key was
@@ -45,16 +50,20 @@ class AliasCache extends ReferentialCache {
   }
 
   /**
-   * Returns the cache name where the object is stored.  Should only ever be
-   * called by RawDrupalContext.
+   * Returns the cache name where the object is stored.
+   *
+   * Should only ever be called by RawDrupalContext.  TODO: figure out an
+   * enforcement mechanism for this.
    *
    * @param string $alias
-   *   The alias for the stored object
+   *   The alias for the stored object.
    *
-   * @return string        The cache name where the object is stored
+   * @return string
+   *   The cache name where the object is stored.
    *
-   * @throws \Exception If the alias does not exist, or the cache where it
-   *                    indicates its data is stored does not exist.
+   * @throws \Exception
+   *   If the alias does not exist, or the cache where it indicates its data
+   *   is stored does not exist.
    */
   public function getCache($alias) {
     if (!property_exists($this->cache, $alias)) {
@@ -65,11 +74,22 @@ class AliasCache extends ReferentialCache {
   }
 
   /**
-   * Converts alias values passed in from a feature into the value of the object and field the alias references.
+   * Transforms alias values into actual values.
+   *
+   * Converts alias values passed in from a feature into the value of the
+   * object and field the alias references.  Alias values begin with the
+   * character sequence '@:', followed by an alias name and a field name.
+   * For example, '@:test_user/uid' would refer to a cached object with
+   * the alias 'test_user', and would convert to whatever value was stored
+   * in the uid field for the object at that alias.
    *
    * @param object $values
-   *         The parameterized object that will be used to create a new Drupal object (node, user, what have you).
-   *         This function is called primarily by the create[X] methods found in RawDrupalContext.
+   *   The parameterized object that will be used to create a new Drupal object
+   *   (node, user, what have you). This function is called primarily by the
+   *   [X]Create methods found in RawDrupalContext, to transform values
+   *   immediately prior to node creation.  It is important for outside
+   *   callers that use aliases in their tables to invoke this function however,
+   *   if they intend to circumvent functions like nodeCreate.
    */
   public function convertAliasValues(&$values) {
     // Translate dynamic values if present.
@@ -81,7 +101,8 @@ class AliasCache extends ReferentialCache {
     }
     foreach ($values as $field_name => $field_value) {
       if (!is_string($field_value)) {
-        // We currently don't allow aliases to exist deeper than the first level.
+        // We currently don't allow aliases to exist deeper than the first
+        // level.
         continue;
       }
 
@@ -99,7 +120,6 @@ class AliasCache extends ReferentialCache {
           continue;
         }
         $prospective_alias = $unresolved_field_values[$i];
-        // Print sprintf("%s::%s: Prospective alias: %s\n", get_class($this), __FUNCTION__, $prospective_alias);
         // This should map to a value in the alias cache.
         $confirmed_alias_with_field = str_replace(self::ALIAS_VALUE_PREFIX, '', $prospective_alias);
         $av_components = explode('/', $confirmed_alias_with_field);
@@ -107,7 +127,6 @@ class AliasCache extends ReferentialCache {
           throw new \Exception(sprintf("%s::%s: Any alias passed as a value must have a field assigned to it.  The alias %s does not", get_class($this), __FUNCTION__, $v));
         }
         list($confirmed_alias, $referenced_field_name) = $av_components;
-        // Print sprintf("%s::%s: Confirmed alias: %s, Field: %s\n", get_class($this), __FUNCTION__, $confirmed_alias, $referenced_field_name);.
         $o = $this->get($confirmed_alias);
         if (empty($o)) {
           throw new \Exception(sprintf('%s::%s: Attempt was made to dynamically reference the property of an item that was not yet created.', get_class($this), __FUNCTION__));

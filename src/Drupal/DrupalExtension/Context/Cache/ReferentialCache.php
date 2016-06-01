@@ -90,15 +90,4 @@ abstract class ReferentialCache extends CacheBase {
     throw new \Exception(sprintf("%s::%s: Function not implemented", __CLASS__, __FUNCTION__));
   }
 
-  /**
-   * {@InheritDoc}.
-   */
-  public function clean(&$context) {
-    if ($this->count() === 0) {
-      return TRUE;
-    }
-    // Do not need to delete contexts; just remove references.
-    return $this->resetCache();
-  }
-
 }

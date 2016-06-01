@@ -266,9 +266,10 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   public function createNode($type, $title) {
     // @todo make this easily extensible.
     $values = array(
+      'type' => $type,
       'title' => $title,
     );
-    $saved = $this->_createNode($values);
+    $saved = $this->createDefaultNode($values);
     // Set internal page on the new node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
   }
@@ -293,7 +294,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       'type'  => $type,
       'uid'   => $this->getLoggedInUser()->uid,
     );
-    $saved = $this->_createNode($values);
+    $saved = $this->createDefaultNode($values);
 
     // Set internal page on the new node.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid));
@@ -324,7 +325,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   public function createNodes($type, TableNode $nodesTable) {
     foreach ($nodesTable->getHash() as $nodeHash) {
       $nodeHash['type'] = $type;
-      $this->_createNode($nodeHash);
+      $this->createDefaultNode($nodeHash);
     }
   }
 
@@ -352,8 +353,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     foreach ($fields->getRowsHash() as $field => $value) {
       $values[$field] = $value;
     }
-
-    $node = $this->_createNode($values);
+    $node = $this->createDefaultNode($values);
 
     // Set internal browser on the node.
     $this->getSession()->visit($this->locatePath('/node/' . $node->nid));
@@ -372,7 +372,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     if (is_null($this->getLoggedInUser())) {
       throw new \Exception(sprintf("%s::%s line %s: Cannot test node edit assertions without a preceding login step.", get_class($this), __FUNCTION__, __LINE__));
     }
-    $saved = $this->_createNode(array('type' => $type));
+    $saved = $this->createDefaultNode(array('type' => $type));
 
     // Set internal browser on the node edit page.
     $this->getSession()->visit($this->locatePath('/node/' . $saved->nid . '/edit'));

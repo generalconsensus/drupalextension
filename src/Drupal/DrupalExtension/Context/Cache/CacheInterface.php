@@ -1,28 +1,42 @@
 <?php
 
 namespace Drupal\DrupalExtension\Context\Cache;
+
+
+use Behat\Behat\Context\TranslatableContext as Context;
+
 /**
- * A simple class to store cached copies of created Drupal items,
- *  with indexing.
+ * The base interface for DrupalContext Caching classes.
  */
 interface CacheInterface {
 
   /**
-   * Purges any values of the given item's type from the Drupal
-   * database.
+   * Cleans the drupal test database.
    *
-   * @param Drupal\DrupalExtension\Context $context
-   *   The currently
-   *                                                 executing context.
+   * Purges stored items from the test database.  WARNING: this does not
+   * necessarily include all items created during the testing process,
+   * especially ones created as a side effect to Mink ui clicking operations
+   * that the test suite could not know about.  It also does not do
+   * proper cleanup in the event of a fatal php exception or CLI interrupt.
    *
-   * @throws \Exception If any kind of error occurred during purging.
+   * @param Context $context
+   *   The currently executing context.
+   *
+   * @throws \Exception
+   *   If any kind of error occurred during purging.
    */
-  public function clean(&$context);
+  public function clean(Context &$context);
 
   /**
+   * Adds indices to the given cache.
+   *
    * Adds an index to a given cache to speed searching by a particular
    * mechanism.  Any content subsequently added to this cache will be
-   * indexed by the provided field in addition to its main index.
+   * indexed by the provided property in addition to its main index.
+   * If an index is established, and an object is passed that does not
+   * contain the index as one of its properties, it should throw
+   * an exception.  Note that values to these indices are not required to
+   * be unique.
    *
    * @param string... $index_name
    *   One or more names of the indexes to add

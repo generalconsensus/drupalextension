@@ -1,6 +1,9 @@
 <?php
 
 namespace Drupal\DrupalExtension\Context\Cache;
+
+use Behat\Behat\Context\TranslatableContext as Context;
+
 /**
  * A simple class to store cached copies of created Drupal items,
  *  with indexing.
@@ -141,7 +144,7 @@ class UserCache extends CacheBase {
   /**
    * {@InheritDoc}.
    */
-  public function clean(&$context) {
+  public function clean(Context &$context) {
     if ($this->count() === 0) {
       return TRUE;
     }
