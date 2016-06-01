@@ -2,25 +2,24 @@
 
 namespace Drupal\DrupalExtension\Context;
 
-use Behat\Gherkin\Node\TableNode;
-use Drupal\Driver\DrupalDriver;
-use Behat\Behat\Hook\Scope\AfterScenarioScope;
-use Behat\Behat\Hook\Scope\BeforeScenarioScope;
 use Behat\Behat\Hook\Scope\AfterFeatureScope;
+use Behat\Behat\Hook\Scope\AfterScenarioScope;
 use Behat\Behat\Hook\Scope\BeforeFeatureScope;
+use Behat\Behat\Hook\Scope\BeforeScenarioScope;
+use Behat\Gherkin\Node\TableNode;
+use Behat\Mink\Element\Element;
+use Behat\Mink\Exception\DriverException;
+use Behat\MinkExtension\Context\RawMinkContext;
+use Behat\Testwork\Hook\HookDispatcher;
+use Drupal\Driver\DrupalDriver;
+use Drupal\DrupalDriverManager;
 use Drupal\DrupalExtension\Context\Cache\AliasCache;
 use Drupal\DrupalExtension\Context\Cache\ContextCache;
-use Drupal\DrupalExtension\Context\Cache\RoleCache;
-use Drupal\DrupalExtension\Context\Cache\TermCache;
 use Drupal\DrupalExtension\Context\Cache\LanguageCache;
 use Drupal\DrupalExtension\Context\Cache\NodeCache;
+use Drupal\DrupalExtension\Context\Cache\RoleCache;
+use Drupal\DrupalExtension\Context\Cache\TermCache;
 use Drupal\DrupalExtension\Context\Cache\UserCache;
-use Behat\MinkExtension\Context\RawMinkContext;
-use Behat\Mink\Exception\DriverException;
-use Behat\Testwork\Hook\HookDispatcher;
-
-use Drupal\DrupalDriverManager;
-
 use Drupal\DrupalExtension\Hook\Scope\BeforeNodeCreateScope;
 
 /**
@@ -376,7 +375,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @throws \Exception
    *
-   * @return
+   * @return mixed
    *   Returns either the value of the text test parameter $name, or NULL if
    *   not found.
    */
@@ -391,8 +390,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Returns a specific css selector.
    *
-   * @param $name
-   *   string CSS selector name
+   * @param string $name
+   *   CSS selector name.
    *
    * @return string
    *   Returns either the value of the selector test parameter $name, or NULL if
@@ -410,6 +409,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * Get active Drupal Driver.
    *
    * @return \Drupal\Driver\DrupalDriver
+   *   The drupal driver
    */
   public function getDriver($name = NULL) {
     return $this->getDrupal()->getDriver($name);
@@ -455,7 +455,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Dispatch scope hooks.
    *
-   * @param string $scope
+   * @param string $scopeType
    *   The entity scope to dispatch.
    * @param \stdClass $entity
    *   The entity.
@@ -475,7 +475,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * Parse multi-value fields. Possible formats:
+   * Parse multi-value fields.
+   *
+   * Possible formats:
    *    A, B, C
    *    A - B, C - D, E - F.
    *
@@ -489,7 +491,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $multicolumn_fields = array();
 
     foreach (clone $entity as $field => $field_value) {
-      // Reset the multicolumn field if the field name does not contain a column.
+      // Reset the multicolumn field if the field name does not contain a
+      // column.
       if (strpos($field, ':') === FALSE) {
         $multicolumn_field = '';
       }
@@ -598,42 +601,20 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * subsequent creation steps.
    *
    * @param string $alias
-   *   The alias to resolve.  Can be any string.  If you
-   *                       create a user, for example, with the values:
-   *                         | name | Joe Schmoe |
-   *                         | @    | test_user  |
-   *                        Then the alias will be 'test_user' for the created
-   *                        user, and the $alias argument here will be 'test_user'.
+   *   The alias to resolve. Can be any string. If you create a user, for
+   *   example, with the values:
+   *   | name | Joe Schmoe |
+   *   | @    | test_user  |
+   *   Then the alias will be 'test_user' for the created user, and the $alias
+   *   argument here will be 'test_user'.
    *
    * @return mixed
-   *         Returns whatever the original cached object was.  If the alias
-   *         referred to a user object, like in the above example, this function
-   *         would actually return that object, freshly loaded from the db.
+   *    Returns whatever the original cached object was.  If the
+   *    alias referred to a user object, like in the above example, this
+   *    function would actually return that object, freshly loaded from the db.
    */
   public function resolveAlias($alias) {
     return self::$aliases->get($alias);
-  }
-
-  /**
-   *
-   */
-  public function resolveAliasType($alias) {
-    try {
-      $cache_name = self::$aliases->getCache($alias);
-      switch ($cache_name) {
-        case 'nodes':
-          return 'node';
-
-        case 'users':
-          return 'user';
-
-        default:
-          throw new \Exception(sprintf("%s::%s line %s: The alias %s refers to an unsupported type.", get_class($this), __FUNCTION__, __LINE__, $alias));
-      }
-    }
-    catch (\Exception $e) {
-      throw new \Exception(sprintf("%s::%s line %s: The alias %s was not found. %s", get_class($this), __FUNCTION__, __LINE__, $alias, $e->getMessage()));
-    }
   }
 
   /**
@@ -668,10 +649,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Alter an existing user.
    *
-   * @return object The altered node.
+   * @return object
+   *   The altered node.
    *
-   * @throws \Exception If the aliased object does not exist, or if any other
-   * situation occurs with the alteration. Exception will provide details.
+   * @throws \Exception
+   *   If the aliased object does not exist, or if any other
+   *   situation occurs with the alteration. Exception will provide details.
    */
   public function userAlter($user, $values) {
     // Pay no mind to resolveAlias and convertAliasValues - they serve to
@@ -720,7 +703,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Alter an existing node.
    *
-   * @return object The altered node.
+   * @return object
+   *   The altered node.
    */
   public function nodeAlter($node, $values) {
     // Pay no mind to resolveAlias and convertAliasValues - they serve to
@@ -749,7 +733,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * Note: does this deal with multiple taxonomies? It doesn't appear so.
    *
-   * @return object The created term.
+   * @return object
+   *   The created term.
    */
   public function termCreate($term) {
     $named_alias = AliasCache::extractAliasKey($term);
@@ -772,9 +757,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * into the parent class.
    *
    * @param string $permissions
-   *   A comma-separated list of permissinos
+   *   A comma-separated list of permissions.
    *
-   * @return int              The role id of the newly created role.
+   * @return int
+   *   The role id of the newly created role.
    */
   public function roleCreate($permissions) {
     $named_alias = AliasCache::extractAliasKey($permissions);
@@ -817,11 +803,11 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * Returns the named user if he/she has been created.
    *
    * @param string $name
-   *   The name of the user
+   *   The name of the user.
    *
    * @return The user | FALSE
-   *                  Returns FALSE if the named user has not yet been
-   *                  created (in this scenario - doesn't check the db)
+   *   Returns FALSE if the named user has not yet been created
+   *   (in this scenario - doesn't check the db).
    */
   public function getNamedUser($name) {
     $result = self::$users->find(array('name' => $name));
@@ -834,10 +820,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Returns the currently logged in user.
    *
-   * @return object|NULL
-   * The currently logged in user, in the format applicable to whatever drupal
+   * The returned value is in the format applicable to whatever Drupal
    * version is currently being run, or NULL if nobody is currently
-   * logged in.
+   * logged in. Note that using the aliasing mechanism here, this actually
+   * returns a loaded user from the database (with some values slightly
+   * modified - like password overwritten with the original, non-hashed values).
+   *
+   * @return object|NULL
+   *   The currently logged in user.
    */
   public function getLoggedInUser() {
     if ($this->loggedIn()) {
@@ -854,6 +844,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
   /**
    * Log-in the current user.
+   *
+   * Logs in the passed user.  Assigns the alias '_current_user_' to this user
+   * for later retrieval by other methods that work with the currently
+   * logged in user.
    *
    * @param object $user
    *   The user to log in.
@@ -897,7 +891,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Determine if the a user is already logged in.
    *
-   * @return boolean
+   * @return bool
    *   Returns TRUE if a user is logged in for this session.
    */
   public function loggedIn() {
@@ -929,21 +923,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // how Drupal SimpleTests currently work as well.
     $element = $session->getPage();
     return $element->findLink($this->getDrupalText('log_out'));
-    // If ($result) {
-    //   $current_user = self::$aliases->get('_current_user_');
-    //   if (empty($current_user)) {
-    //     throw new \Exception(sprintf("%s::%s: Invalid state - logged in, but current user is empty", get_class($this), __FUNCTION__));
-    //   }
-    // }.
   }
 
   /**
-   * User with a given role is already logged in.
+   * User with a given role(s) is already logged in.
    *
-   * @param string $role
+   * Note that the function has changed here from earlier versions,
+   * which was 'loggedInWithRole'.
+   *
+   * @param string $roles
    *   A single role, or multiple comma-separated roles in a single string.
    *
-   * @return boolean
+   * @return bool
    *   Returns TRUE if the current logged in user has this role (or roles).
    */
   public function loggedInWithRoles($roles) {
@@ -961,21 +952,31 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
+   * User with a given role(s) is already logged in.
+   *
+   * @deprecated
+   *   Changed to loggedInWithRoles.
+   */
+  public function loggedInWithRole($role) {
+    return $this->loggedInWithRoles($role);
+  }
+
+  /**
    * Convenience method.  Invokes a method on another context object.
    *
    * @param string $context_name
-   *   The name of the other context.  This cannot be
-   *                             arbitrary -  said context must have been
-   *                             explicitly stored in the class during the
-   *                             BeforeScenario hook (see gatherContexts).
+   *   The name of the other context.  This cannot be arbitrary -  said context
+   *   must have been explicitly stored in the class during the BeforeScenario
+   *   hook (see gatherContexts).
    * @param string $method
    *   The name of the method to invoke.
    *
-   * @return mixed              The results of the callback from the invoked
-   *                                method.
+   * @return mixed
+   *   The results of the callback from the invoked method.
    *
-   * @throws \Exception   If the passed method does not exist on the requested
-   *                       context, or if the named context does not exist.
+   * @throws \Exception
+   *   If the passed method does not exist on the requested context, or if the
+   *   named context does not exist.
    */
   public function callContext($context_name, $method) {
     try {
@@ -1004,15 +1005,17 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * Utility function to convert a tableNode to an array.  TableNodes
-   * are immutable, so I can't directly modify them.  This function
-   * assumes row-based ordering.
+   * Utility function to convert a tableNode to an array.
+   *
+   * Note: TableNodes are immutable, so I can't directly modify them.  This
+   * function assumes row-based ordering.
    *
    * @param TableNode $table
-   *   The tablenode to be converted
+   *   The tablenode to be converted.
    *
-   * @return array           An array of the tablenode results. Returns an empty
-   *                            array if the passed table is null or empty.
+   * @return array
+   *   An array of the tablenode results. Returns an empty array if the passed
+   *   table is null or empty.
    */
   public static function convertTableNodeToArray(TableNode $table = NULL, $arrangement = 'row') {
 
@@ -1040,24 +1043,24 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
       default:
         throw new \Exception(sprintf("%s::%s: Unknown table structure requested: %s", get_class($this), __FUNCTION__, $arrangement));
-      break;
     }
     return $values;
   }
 
   /**
    * Retrieve a table row containing specified text from a given element.
+   *
    * Note: moved from DrupalContext to consolidate non-step-defining functions.
    *
-   * @param \Behat\Mink\Element\Element
-   * @param string
+   * @param \Behat\Mink\Element\Element $element
+   *   The starting element from which the search should be performed.
+   * @param string $search
    *   The text to search for in the table row.
    *
    * @return \Behat\Mink\Element\NodeElement
-   *
-   * @throws \Exception
+   *   The row containing the text that was searched for.
    */
-  public function getTableRow($element, $search) {
+  public function getTableRow(Element $element, $search) {
     $rows = $element->findAll('css', 'tr');
     if (empty($rows)) {
       throw new \Exception(sprintf('%s::%s: No rows found on the page %s', get_class($this), __FUNCTION__, $this->getSession()->getCurrentUrl()));
