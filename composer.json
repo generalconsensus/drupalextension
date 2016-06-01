@@ -18,7 +18,7 @@
   "repositories": [
     {
       "type": "vcs",
-      "url": "git@github.com:aronbeal/DrupalDriver.git"
+      "url": "https://github.com/aronbeal/DrupalDriver.git"
     }
   ],
   "require": {
