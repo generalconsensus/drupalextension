@@ -830,7 +830,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The currently logged in user.
    */
   public function getLoggedInUser() {
-    if ($this->loggedIn()) {
+    if (!$this->loggedIn()) {
       return NULL;
     }
     $current_user = self::$aliases->get('_current_user_');
@@ -914,6 +914,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     // login form is displayed on /user/login.
     $session->visit($this->locatePath('/user/login'));
     if (!$page->has('css', $this->getDrupalSelector('login_form_selector'))) {
+        print "Found login form selector\n";
+      $this->callContext('Drupal', 'iPutABreakpoint');
       return TRUE;
     }
 
@@ -944,7 +946,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (is_string($roles)) {
       $roles = array_map("trim", explode(',', $roles));
     }
-    $current_user = self::$aliases->get('_current_user_');
+    try{
+      $current_user = self::$aliases->get('_current_user_');
+
+    } catch (\Exception $e){
+      var_dump((string)self::$aliases);
+      throw $e;
+    }
     if (!isset($current_user->roles)) {
       return FALSE;
     }
