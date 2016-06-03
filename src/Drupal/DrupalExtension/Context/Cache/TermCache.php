@@ -30,7 +30,9 @@ class TermCache extends CacheBase {
     if ($this->count() === 0) {
       return TRUE;
     }
-    foreach ($this->cache as $term) {
+    foreach ($this->cache as $tid) {
+      $term = new \stdClass();
+      $term->tid = $tid;
       $context->getDriver()->termDelete($term);
     }
     return $this->resetCache();
