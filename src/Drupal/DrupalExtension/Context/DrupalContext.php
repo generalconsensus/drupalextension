@@ -447,8 +447,12 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    */
   public function createTerms($vocabulary, TableNode $termsTable) {
     foreach ($termsTable->getHash() as $termsHash) {
+      $termsHash = $termsHash + array(
+        'name'                    => $this->getDriver()->getRandom()->name(25),
+        'vocabulary_machine_name' => $vocabulary,
+        'description'             => $this->getDriver()->getRandom()->name(255),
+      );
       $term                          = (object) $termsHash;
-      $term->vocabulary_machine_name = $vocabulary;
       if (!isset($term->name)) {
         throw new \Exception(sprintf("%s::%s line %s: Table data contained no value for 'name'", get_class($this), __FUNCTION__, __LINE__));
       }
