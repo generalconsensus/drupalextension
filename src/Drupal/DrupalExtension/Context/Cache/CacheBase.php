@@ -91,10 +91,12 @@ abstract class CacheBase implements CacheInterface {
     if (empty($index)) {
       throw new \Exception(sprintf("%s::%s: Couldn't determine primary key! Value couldn't be added to cache - cannot safely continue.", get_class($this), __FUNCTION__));
     }
-    $index = strval($index);
     if (empty($value)) {
+      if(!is_scalar($index)){
+        throw new \Exception(sprintf("%s::%s line %s: Cannot store an object without an index.", get_class($this), __FUNCTION__, __LINE__));
+      }
       // Stored value is a primary key.
-      $value = $index;
+      $value = strval($index);
     }
     try {
       $existing = $this->get($index);
