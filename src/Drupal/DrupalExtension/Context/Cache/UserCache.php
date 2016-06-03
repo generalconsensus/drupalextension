@@ -150,6 +150,7 @@ class UserCache extends CacheBase {
     }
     $uids = array_keys(get_object_vars($this->cache));
     $context->getDriver()->userDeleteMultiple($uids);
+    $context->getDriver()->processBatch();
     $this->resetCache();
     return TRUE;
   }
