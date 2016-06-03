@@ -7,6 +7,8 @@
     "web",
     "test"
   ],
+  "minimum-stability": "dev",
+  "prefer-stable": true,
   "homepage": "http://drupal.org/project/drupalextension",
   "license": "GPL-2.0+",
   "authors": [
