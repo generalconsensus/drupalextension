@@ -134,7 +134,19 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $user = $this->createDefaultUser(array('roles' => $roles));
     $this->login($user);
   }
-
+  /**
+   * @Given I am logged in as :name
+   */
+  public function assertLoggedInByName($name) {
+    $users = self::$users->find(array('name'=>$name));
+    if (empty($users)) {
+      throw new \Exception(sprintf('%s::%s line %s: No user with %s name is registered with the driver.', get_class($this), __FUNCTION__, __LINE__, $name));
+    }
+    if (count($users) > 1) {
+      throw new \Exception(sprintf('%s::%s line %s: More than one user found with the name "%s". Please revise.', get_class($this), __FUNCTION__, __LINE__, $name));
+    }
+    $this->login($user);
+  }
   /**
    * Creates and authenticates a user with the given role(s) and given fields.
    *
