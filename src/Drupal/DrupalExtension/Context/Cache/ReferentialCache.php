@@ -2,6 +2,8 @@
 
 namespace Drupal\DrupalExtension\Context\Cache;
 
+use Behat\Behat\Context\TranslatableContext as Context;
+
 /**
  * A cache that stores references to other caches during creation, so that
  * it can return the result of a cache other than itself.
@@ -62,20 +64,20 @@ abstract class ReferentialCache extends CacheBase {
    * @return array The cache name and cache key as the first and second indices
    * of an array.
    */
-  public function get($key) {
-    $o = parent::get($key);
+  public function get($key, Context &$context) {
+    $o = parent::get($key, $context);
     if (!property_exists($this->cache_references, $o->cache)) {
       throw new \Exception(sprintf("%s::%s: The cache '%s' is not referrable", __CLASS__, __FUNCTION__, $o->cache));
     }
-    return $this->cache_references->{$o->cache}->get($o->value);
+    return $this->cache_references->{$o->cache}->get($o->value, $context);
   }
 
   /**
    * {@InheritDoc}.
    */
-  public function remove($key) {
+  public function remove($key, Context &$context) {
     if (property_exists($this->cache, $key)) {
-      $o = $this->get($key);
+      $o = $this->get($key, $context);
       unset($this->cache->{$key});
       return $o;
     }

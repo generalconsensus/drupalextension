@@ -23,7 +23,8 @@ class UserCache extends CacheBase {
   private $metadata = NULL;
 
   /**
-   * Constructor.
+   * Override constructor to add metadata object.  See variable description
+   * for more info.
    */
   public function __construct() {
     parent::__construct();
@@ -40,13 +41,13 @@ class UserCache extends CacheBase {
   public function add($index, $value = NULL) {
 
     if (empty($value)) {
-      throw new \Exception(sprintf("%s::%s: A user object must be passed to the add method for this cache..", get_class($this), __FUNCTION__));
+      throw new \Exception(sprintf("%s::%s: A user object must be passed to the add method for this cache.", get_class($this), __FUNCTION__));
     }
     $metadata = array(
       'pass' => $value->pass,
     );
     $this->addMetaData($index, $metadata);
-    return parent::add($index);
+    return parent::add($index, $value);
   }
 
   /**
@@ -65,6 +66,39 @@ class UserCache extends CacheBase {
     }
     $index = strval($index);
     $this->metadata->{$index} = (object) $metadata;
+  }
+  /**
+   * {@inheritdoc}
+   * In order to avoid a db lookup, the find operation for the user cache
+   * only stores values stored in an index.
+   */
+  public function find(array $values = array(), Context &$context){
+    $matches = array();
+    $match = TRUE;
+    foreach ($values as $k => $v) {
+      if(!is_scalar($v)){
+        throw new \Exception(sprintf("%s::%s line %s: This cache does not support searching for non-scalar values.", get_class($this), __FUNCTION__, __LINE__));
+      }
+      if(!isset($this->indices->{$k})){
+        throw new \Exception(sprintf("%s::%s line %s: The content in this cache has not been indexed by the field %s.  Available indices: %s", get_class($this), __FUNCTION__, __LINE__, $k, array_keys(get_object_vars($this->indices))));
+      }
+      $index_values = array_keys(get_object_vars($this->indices->{$k}));
+      //for now, limit index searching solely to exact matches.
+      if(!in_array($v, $index_values)){
+        //if a given value doesn't exist for a given index, then any venn
+        //intersection will also be empty.
+        return array();
+      }
+      $matches = $matches + $this->indices->{$k}->{$v};
+    }
+    //Matches now holds an array of arrays, each of which holds a set of
+    //indices.  An overlap of these arrays will comprise the set that  matches
+    //all criteria.
+    $matches = array_unique($matches);
+    for($i = 0; $i < count($matches); $i++){
+      $matches[$i] = $this->get($matches[$i], $context);
+    }
+    return $matches;
   }
 
   /**
@@ -98,47 +132,13 @@ class UserCache extends CacheBase {
    * with the value stored prior to the initial adding, so we can use
    * it to log this user in again.
    */
-  public function get($key) {
+  public function get($key, Context &$context) {
     if (!property_exists($this->cache, $key)) {
       throw new \Exception(sprintf("%s::%s: No user result found for key %s", __CLASS__, __FUNCTION__, $key));
     }
-    $user = user_load($key);
+    $user = $context->getDriver()->getCore()->userLoad($key);
     $user->pass = $this->getMetaData($user->uid, 'pass');
     return $user;
-  }
-
-  /**
-   * {@InheritDoc}.
-   */
-  public function find(array $values = array()) {
-    $results = entity_load('user', array_keys(get_object_vars($this->cache)));
-    if (empty($results)) {
-      throw new \Exception(sprintf("%s::%s: The cached users couldn't be retrieved!", get_class($this), __FUNCTION__));
-    }
-    $matches = array();
-    foreach ($results as $uid => $entity) {
-      $e_wrapped = entity_metadata_wrapper('user', $entity);
-      $match = TRUE;
-      foreach ($values as $k => $v) {
-        // TODO: This is ugly. I need to resolve aliases elsewhere.
-        if ($k === '@') {
-          continue;
-        }
-        if (get_class($e_wrapped->{$k}) === 'EntityListWrapper' && !is_array($v)) {
-          $v = array($v);
-        }
-        $old_value = $e_wrapped->{$k}->value();
-        // Stringify for printing in debug messages.
-        if ($old_value !== $v) {
-          $match = FALSE;
-          break;
-        }
-      }
-      if ($match) {
-        $matches[] = $this->get($e_wrapped->getIdentifier());
-      }
-    }
-    return $matches;
   }
 
   /**

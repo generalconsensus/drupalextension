@@ -134,19 +134,27 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $user = $this->createDefaultUser(array('roles' => $roles));
     $this->login($user);
   }
+
   /**
    * @Given I am logged in as :name
    */
   public function assertLoggedInByName($name) {
-    $users = self::$users->find(array('name'=>$name));
-    if (empty($users)) {
-      throw new \Exception(sprintf('%s::%s line %s: No user with %s name is registered with the driver.', get_class($this), __FUNCTION__, __LINE__, $name));
+    try{
+      $users = self::$users->find(array('name'=>$name), $this);
+      if(empty($users)){
+        throw new \Exception("No user could be found with the name $name");
+      }
+      if(count($users) > 1){
+        throw new \Exception(sprintf("Multiple users with the name %s found.  Please be more specific.", get_class($this), __FUNCTION__, __LINE__, $name));
+      }
+      //log in with the first such user.
+      $this->login($users[0]);
     }
-    if (count($users) > 1) {
-      throw new \Exception(sprintf('%s::%s line %s: More than one user found with the name "%s". Please revise.', get_class($this), __FUNCTION__, __LINE__, $name));
+    catch(\Exception $e){
+      throw new \Exception(sprintf("%s::%s line %s: %s", get_class($this), __FUNCTION__, __LINE__, $e->getMessage()));
     }
-    $this->login($user);
   }
+
   /**
    * Creates and authenticates a user with the given role(s) and given fields.
    *
@@ -381,7 +389,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * @Then I should be able to edit a/an :type( content)
    */
   public function assertEditNodeOfType($type) {
-    if (is_null($this->getLoggedInUser())) {
+    if (!$this->loggedIn()) {
       throw new \Exception(sprintf("%s::%s line %s: Cannot test node edit assertions without a preceding login step.", get_class($this), __FUNCTION__, __LINE__));
     }
     $saved = $this->createDefaultNode(array('type' => $type));

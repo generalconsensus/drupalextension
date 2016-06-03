@@ -1,6 +1,9 @@
 <?php
 
 namespace Drupal\DrupalExtension\Context\Cache;
+
+use Behat\Behat\Context\TranslatableContext as Context;
+
 /**
  * For storing contexts created using the @BeforeScenario hook.
  */
@@ -22,7 +25,7 @@ class ContextCache extends CacheBase {
    * This cache does not implement this interface method, and will throw an
    * exception if called.
    */
-  public function find(array $values = array()) {
+  public function find(array $values = array(), Context &$context) {
     $allowed_keys = array(
       'name' => function($v, $context_names) {
         $results = array();

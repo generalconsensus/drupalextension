@@ -12,15 +12,6 @@ use Behat\MinkExtension\Context\MinkContext as MinkExtension;
 class MinkContext extends MinkExtension implements TranslatableContext {
 
   /**
-   * Returns list of definition translation resources paths.
-   *
-   * @return array
-   */
-  public static function getTranslationResources() {
-    return glob(__DIR__ . '/../../../../i18n/*.xliff');
-  }
-
-  /**
    * Return a region from the current page.
    *
    * @throws \Exception

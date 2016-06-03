@@ -16,11 +16,11 @@ class TermCache extends CacheBase {
    * WARNING: leverages the D7 api to directly retrieve a result.  This
    * eventually needs to be rewritten to use drivers.
    */
-  public function get($key) {
+  public function get($key, Context &$context) {
     if (!property_exists($this->cache, $key)) {
       throw new \Exception(sprintf("%s::%s: No term result found for key %s", __CLASS__, __FUNCTION__, $key));
     }
-    return taxonomy_term_load($key);
+    return $context->getDriver()->getCore()->termLoad($key);
   }
 
   /**

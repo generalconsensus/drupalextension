@@ -91,7 +91,7 @@ class AliasCache extends ReferentialCache {
    *   callers that use aliases in their tables to invoke this function however,
    *   if they intend to circumvent functions like nodeCreate.
    */
-  public function convertAliasValues(&$values) {
+  public function convertAliasValues(&$values, &$context) {
     // Translate dynamic values if present.
     if (empty($values)) {
       throw new \Exception(sprintf('%s::%s: An empty argument was passed.', get_class($this), __FUNCTION__));
@@ -105,8 +105,10 @@ class AliasCache extends ReferentialCache {
         // level.
         continue;
       }
-
-      if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '|', $field_value)) {
+      //aliases are of the form @:[alphanumeric]/[alphanumeric].  For instance,
+      //'@:test_user/uid' would provide the user id of the user aliased by
+      //'test_user' in a previous scenario step.
+      if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '\w+/\w+|', $field_value)) {
         // No aliases anywhere in the field value.
         continue;
       }
@@ -115,19 +117,20 @@ class AliasCache extends ReferentialCache {
       $unresolved_field_values = array_map('trim', explode(',', $field_value));
       $resolved_field_values = array();
       for ($i = 0; $i < count($unresolved_field_values); $i++) {
-        if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '|', $field_value)) {
+        if (!preg_match('|' . self::ALIAS_VALUE_PREFIX . '\w+/\w+|', $field_value)) {
           $resolved_field_values[$i] = $unresolved_field_values[$i];
           continue;
         }
-        $prospective_alias = $unresolved_field_values[$i];
+        //perfect match to our regex, so it is an alias.
+        $confirmed_alias = $unresolved_field_values[$i];
         // This should map to a value in the alias cache.
-        $confirmed_alias_with_field = str_replace(self::ALIAS_VALUE_PREFIX, '', $prospective_alias);
+        $confirmed_alias_with_field = str_replace(self::ALIAS_VALUE_PREFIX, '', $confirmed_alias);
         $av_components = explode('/', $confirmed_alias_with_field);
         if (count($av_components) < 2) {
-          throw new \Exception(sprintf("%s::%s: Any alias passed as a value must have a field assigned to it.  The alias %s does not", get_class($this), __FUNCTION__, $v));
+          throw new \Exception(sprintf("%s::%s: Any alias passed as a value must have a field assigned to it.  The alias %s does not", get_class($this), __FUNCTION__, $confirmed_alias));
         }
-        list($confirmed_alias, $referenced_field_name) = $av_components;
-        $o = $this->get($confirmed_alias);
+        list($actual_alias, $referenced_field_name) = $av_components;
+        $o = $this->get($actual_alias, $context);
         if (empty($o)) {
           throw new \Exception(sprintf('%s::%s: Attempt was made to dynamically reference the property of an item that was not yet created.', get_class($this), __FUNCTION__));
         }

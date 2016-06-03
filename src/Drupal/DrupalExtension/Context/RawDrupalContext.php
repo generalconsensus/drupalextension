@@ -115,7 +115,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *
    * @var Drupal\DrupalExtension\Context\Cache\CacheInterface
    */
-  protected static $languages = array();
+  protected static $languages = NULL;
 
 
   /**
@@ -265,9 +265,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
   /**
    * Returns list of definition translation resources paths.
-   *
-   * Note: moved from DrupalContext function to consolidate non-step
-   * defining functionality to parent class.
    *
    * @return array
    *   Returns an array containing .xliff i18n entries
@@ -614,7 +611,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *    function would actually return that object, freshly loaded from the db.
    */
   public function resolveAlias($alias) {
-    return self::$aliases->get($alias);
+    return self::$aliases->get($alias, $this);
   }
 
   /**
@@ -628,7 +625,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       $user = (object) $user;
     }
     $named_alias = AliasCache::extractAliasKey($user);
-    self::$aliases->convertAliasValues($user);
+    self::$aliases->convertAliasValues($user, $this);
     $this->dispatchHooks('BeforeUserCreateScope', $user);
     $this->parseEntityFields('user', $user);
     $this->getDriver()->userCreate($user);
@@ -668,7 +665,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!empty($named_alias)) {
       throw new \Exception(sprintf("%s::%s line %s: Alias keys are not allowed in alteration steps.", get_class($this), __FUNCTION__, __LINE__));
     }
-    self::$aliases->convertAliasValues($values);
+    self::$aliases->convertAliasValues($values, $this);
     $this->parseEntityFields('user', $values);
     $this->getDriver()->getCore()->userAlter($user, $values);
     return $user;
@@ -686,7 +683,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       $node = (object) $node;
     }
     $named_alias = AliasCache::extractAliasKey($node);
-    self::$aliases->convertAliasValues($node);
+    self::$aliases->convertAliasValues($node, $this);
     $this->dispatchHooks('BeforeNodeCreateScope', $node);
     $this->parseEntityFields('node', $node);
     // note: this driver function actually returns the created object, where
@@ -718,7 +715,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!empty($named_alias)) {
       throw new \Exception(sprintf("%s::%s line %s: Alias keys are not allowed in alteration steps.", get_class($this), __FUNCTION__, __LINE__));
     }
-    self::$aliases->convertAliasValues($values);
+    self::$aliases->convertAliasValues($values, $this);
     $this->parseEntityFields('node', $values);
     $this->getDriver()->getCore()->nodeAlter($node, $values);
     return $node;
@@ -788,19 +785,18 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   /**
    * Returns the named user if he/she has been created.
    *
+   * TODO: This function is not yet implemented (functionality removed until
+   * underlying system can be retrofitted)
+   *
    * @param string $name
    *   The name of the user.
    *
-   * @return The user | FALSE
-   *   Returns FALSE if the named user has not yet been created
-   *   (in this scenario - doesn't check the db).
+   * @return object | FALSE
+   *   Returns the drupal user, or FALSE if the named
+   *   user has not yet been created (in this scenario - doesn't check the db).
    */
   public function getNamedUser($name) {
-    $result = self::$users->find(array('name' => $name));
-    if (!empty($results)) {
-      return FALSE;
-    }
-    return reset($results);
+    throw new \Exception("TODO: implement RawDrupalContext getNamedUser");
   }
 
   /**
@@ -819,7 +815,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!$this->loggedIn()) {
       return NULL;
     }
-    $current_user = self::$aliases->get('_current_user_');
+    $current_user = self::$aliases->get('_current_user_', $this);
     if (empty($current_user)) {
       throw new \Exception(sprintf('%s::%s: The drupal session is logged in, but no
         current user is recorded in the context.  This is an invalid state, and
@@ -842,28 +838,34 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (!is_object($user) || !isset($user->name) || !isset($user->pass)) {
       throw new \Exception(sprintf('%s::%s line %s: Invalid argument for function: %s', get_class($this), __FUNCTION__, __LINE__, print_r($user, TRUE)));
     }
-    // Check if logged in.
-    if ($this->loggedIn()) {
-      $this->logout();
-    }
-    $this->getSession()->visit($this->locatePath('/user'));
-    $element = $this->getSession()->getPage();
-    $element->fillField($this->getDrupalText('username_field'), $user->name);
-    $element->fillField($this->getDrupalText('password_field'), $user->pass);
-    $submit = $element->findButton($this->getDrupalText('log_in'));
-    if (empty($submit)) {
-      throw new \Exception(sprintf("%s::%s: No submit button at %s", get_class($this), __FUNCTION__, $this->getSession()->getCurrentUrl()));
-    }
+    try {
+      // Check if logged in.
+      if ($this->loggedIn()) {
+        $this->logout();
+      }
+      $this->getSession()->visit($this->locatePath('/user/login'));
+      $element = $this->getSession()->getPage();
+      $element->fillField($this->getDrupalText('username_field'), $user->name);
+      $element->fillField($this->getDrupalText('password_field'), $user->pass);
+      $submit = $element->findButton($this->getDrupalText('log_in'));
+      if (empty($submit)) {
+        throw new \Exception(sprintf("%s::%s: No submit button at %s", get_class($this), __FUNCTION__, $this->getSession()->getCurrentUrl()));
+      }
 
-    // Log in.
-    $submit->click();
-    // $user->roles = array_diff($user->roles, array('authenticated user'));.
-    if (!$this->loggedIn()) {
-      fwrite(STDOUT, "Failed to login as user:" . print_r($user, TRUE));
-      $this->callContext('Drupal', 'iPutABreakpoint');
-      throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role(s) '%s'", get_class($this), __FUNCTION__, $user->name, implode(", ", $user->roles)));
+      // Log in.
+      $submit->click();
+      // $user->roles = array_diff($user->roles, array('authenticated user'));.
+      if (!$this->loggedIn()) {
+        fwrite(STDOUT, "Failed to login as user:" . print_r($user, TRUE));
+        $this->callContext('Drupal', 'iPutABreakpoint');
+        throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role(s) '%s'", get_class($this), __FUNCTION__, $user->name, implode(", ", $user->roles)));
+      }
+      self::$aliases->add('_current_user_', array('value' => $user->uid, 'cache' => 'users'));
     }
-    self::$aliases->add('_current_user_', array('value' => $user->uid, 'cache' => 'users'));
+    catch (\Exception $e) {
+      var_dump($this->getSession()->getPage()->getContent());
+      throw new \Exception(sprintf("%s::%s line %s: %s", get_class($this), __FUNCTION__, __LINE__, $e->getMessage()));
+    }
   }
 
   /**
@@ -871,7 +873,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   public function logout() {
     $this->getSession()->visit($this->locatePath('/user/logout'));
-    self::$aliases->remove('_current_user_');
+    self::$aliases->remove('_current_user_', $this);
   }
 
   /**
@@ -898,13 +900,11 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
 
     // Some themes do not add that class to the body, so lets check if the
     // login form is displayed on /user/login.
-    $session->visit($this->locatePath('/user/login'));
-    if (!$page->has('css', $this->getDrupalSelector('login_form_selector'))) {
-        print "Found login form selector\n";
-      $this->callContext('Drupal', 'iPutABreakpoint');
-      return TRUE;
-    }
-
+    // $session->visit($this->locatePath('/user/login'));
+    // print sprintf("Drupal selector: %s\n", $this->getDrupalSelector('login_form_selector'));
+    // if (!$page->has('css', $this->getDrupalSelector('login_form_selector'))) {
+    //   return TRUE;
+    // }.
     $session->visit($this->locatePath('/'));
 
     // If a logout link is found, we are logged in. While not perfect, this is
@@ -932,13 +932,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     if (is_string($roles)) {
       $roles = array_map("trim", explode(',', $roles));
     }
-    try{
-      $current_user = self::$aliases->get('_current_user_');
-
-    } catch (\Exception $e){
-      var_dump((string)self::$aliases);
-      throw $e;
-    }
+    $current_user = self::$aliases->get('_current_user_', $this);
     if (!isset($current_user->roles)) {
       return FALSE;
     }
@@ -975,13 +969,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   public function callContext($context_name, $method) {
     try {
       // Assume context_name is the full literal classpath for starters.
-      $other_context = self::$contexts->get($context_name);
+      $other_context = self::$contexts->get($context_name, $this);
     }
     catch (\Exception $e) {
       // Search by classpath failed. Try a partial match, based just on the
       // class name.  If you get a single result, use it.  If not, throw an
       // exception.
-      $other_contexts = self::$contexts->find(array('class' => $context_name));
+      $other_contexts = self::$contexts->find(array('class' => $context_name), $this);
       if (count($other_contexts) === 0) {
         throw new \Exception(sprintf("%s::%s: %s context not available.  Available contexts: %s", get_class($this), __FUNCTION__, $context_name, print_r(self::$contexts, TRUE)));
       }

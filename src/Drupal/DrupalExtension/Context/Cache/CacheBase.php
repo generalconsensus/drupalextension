@@ -29,8 +29,9 @@ abstract class CacheBase implements CacheInterface {
    * Constructor.
    */
   public function __construct() {
+
     // Print "Constructing ".get_class($this) ."\n";.
-    $this->cache = new \stdClass();
+    $this->cache   = new \stdClass();
     $this->indices = new \stdClass();
     $this->resetCache();
   }
@@ -43,6 +44,7 @@ abstract class CacheBase implements CacheInterface {
    * be accomplished.
    */
   protected function resetCache() {
+
     $this->cache = new \stdClass();
     // $this->hash = new \stdClass();
     foreach ($this->getNamedIndices() as $k) {
@@ -55,6 +57,7 @@ abstract class CacheBase implements CacheInterface {
    * {@inheritDoc}.
    */
   public function getNamedIndices() {
+
     return array_keys(get_object_vars($this->indices));
   }
 
@@ -65,6 +68,7 @@ abstract class CacheBase implements CacheInterface {
    *   An array of string keys.
    */
   protected function getCacheIndicies() {
+
     return array_keys(get_object_vars($this->cache));
   }
 
@@ -72,6 +76,7 @@ abstract class CacheBase implements CacheInterface {
    * {@InheritDoc}.
    */
   public function addIndices() {
+
     $named_indices = func_get_args();
     if (empty($named_indices)) {
       throw new \Exception(sprintf("%s:: No arguments passed to %s function", get_class($this), __FUNCTION__));
@@ -88,19 +93,20 @@ abstract class CacheBase implements CacheInterface {
    * {@InheritDoc}.
    */
   public function add($index, $value = NULL) {
+
     if (empty($index)) {
       throw new \Exception(sprintf("%s::%s: Couldn't determine primary key! Value couldn't be added to cache - cannot safely continue.", get_class($this), __FUNCTION__));
     }
     if (empty($value)) {
-      if(!is_scalar($index)){
-        throw new \Exception(sprintf("%s::%s line %s: Cannot store an object without an index.", get_class($this), __FUNCTION__, __LINE__));
+      if (!is_scalar($index)) {
+        throw new \Exception(sprintf("%s::%s line %s: cannot add a non-scalar as an index", get_class($this), __FUNCTION__, __LINE__));
       }
+      $index = strval($index);
       // Stored value is a primary key.
       $value = strval($index);
     }
     try {
-      $existing = $this->get($index);
-      if (!empty($existing)) {
+      if (property_exists($this->cache, $index)) {
         throw new \Exception(sprintf("%s::%s: An item with the index %s already exists in this cache", get_class($this), __FUNCTION__, $index));
       }
     }
@@ -108,6 +114,27 @@ abstract class CacheBase implements CacheInterface {
       // Do nothing - we *want* there to be no entry.
     }
     $this->cache->{$index} = $value;
+    if(is_scalar($value)){
+      return $index;
+    }
+    //if the value is not scalar, it becomes possible to store references by
+    //named index.
+    foreach ($this->getNamedIndices() as $index_name) {
+      if(!isset($value->{$index_name})){
+        //the value doesn't contain any entries that match any known indices
+        continue;
+      }
+      $index_value = $value->{$index_name};
+      if(!is_scalar($index_value)){
+        //Can't perform an index lookup on a non-scalar value.
+        continue;
+      }
+      // print sprintf("%s::%s line %s: Adding %s->%s index with value %s\n", get_class($this), __FUNCTION__, __LINE__, $index_name, $index_value, $index);
+      if(!isset($this->indices->{$index_name}->{$index_value})){
+        $this->indices->{$index_name}->{$index_value} = array();
+      }
+      $this->indices->{$index_name}->{$index_value} []= $index;
+    }
     return $index;
   }
 
@@ -121,7 +148,8 @@ abstract class CacheBase implements CacheInterface {
    *   An array where the keys are property names on the cached object, and
    *   where values are the property values.
    */
-  public function find(array $values = array()) {
+  public function find(array $values = array(), Context &$context) {
+
     throw new \Exception(sprintf("%s: does not implement the %s method", get_class($this), __FUNCTION__));
   }
 
@@ -129,6 +157,7 @@ abstract class CacheBase implements CacheInterface {
    * {@InheritDoc}.
    */
   public function count() {
+
     return count(array_keys(get_object_vars($this->cache)));
   }
 
@@ -136,6 +165,7 @@ abstract class CacheBase implements CacheInterface {
    * {@InheritDoc}.
    */
   public function clean(Context &$context) {
+
     if ($this->count() === 0) {
       return TRUE;
     }
@@ -146,7 +176,8 @@ abstract class CacheBase implements CacheInterface {
   /**
    * {@InheritDoc}.
    */
-  public function remove($key) {
+  public function remove($key, Context &$context) {
+
     throw new \Exception(sprintf("%s:: does not implement the %s method %", get_class($this), __FUNCTION__));
   }
 
@@ -173,6 +204,7 @@ abstract class CacheBase implements CacheInterface {
    *   If the named index is not valid (which should be known before runtime).
    */
   public function getIndex($index_name, $index_key) {
+
     if (!property_exists($this->indices, $index_name)) {
       throw new \Exception(sprintf("%s::%s: The index %s does not exist in this cache! Cache state: %", get_class($this), __FUNCTION__, $index_name, $this));
     }
@@ -185,7 +217,8 @@ abstract class CacheBase implements CacheInterface {
   /**
    * {@InheritDoc}.
    */
-  public function get($key) {
+  public function get($key, Context &$context) {
+
     if (!property_exists($this->cache, $key)) {
       throw new \Exception(sprintf("%s::%s: No result found for key %s", __CLASS__, __FUNCTION__, $key));
     }
@@ -201,11 +234,18 @@ abstract class CacheBase implements CacheInterface {
    *   usually be overly verbose.
    */
   public function __toString() {
+    $index_values = array();
     $result = "\n**************************";
     $result .= "\n " . get_class($this);
     $result .= "\n**************************\nCache entry count: " . $this->count();
     $result .= "\nKeys: " . implode(', ', $this->getCacheIndicies());
-    $result .= "\nIndices: " . implode(', ', $this->getNamedIndices());
+    $result .= "\nIndices: ";
+    foreach($this->getNamedIndices() as $index_name){
+      $result .= "\nIndex values stored in $index_name";
+      foreach($this->indices->{$index_name} as $index_value){
+        $result .= "\n\t$index_value";
+      }
+    }
     $result .= "\n**************************\n";
     return $result;
   }
