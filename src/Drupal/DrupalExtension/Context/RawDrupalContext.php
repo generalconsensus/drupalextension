@@ -737,15 +737,11 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created term.
    */
   public function termCreate($term) {
-    $named_alias = AliasCache::extractAliasKey($term);
-    if (!is_null($named_alias)) {
-      throw new \Exception(sprintf('%s::%s: Aliasing for terms is not yet supported', get_class($this), __FUNCTION__));
-    }
     $this->dispatchHooks('BeforeTermCreateScope', $term);
     $this->parseEntityFields('taxonomy_term', $term);
     $saved = $this->getDriver()->createTerm($term);
     $this->dispatchHooks('AfterTermCreateScope', $saved);
-    $term_primary_key = self::$terms->add($term);
+    self::$terms->add($saved->tid);
     return $saved;
   }
 
@@ -763,16 +759,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The role id of the newly created role.
    */
   public function roleCreate($permissions) {
-    $named_alias = AliasCache::extractAliasKey($permissions);
-    if (!is_null($named_alias)) {
-      throw new \Exception(sprintf('%s::%s: Aliasing for roles is not yet supported', get_class($this), __FUNCTION__));
-    }
-    $role_name = $this->getDriver()->roleCreate($permissions);
-    $role = new \stdClass();
-    $role->rid = $role_name;
-    $role->permissions = $permissions;
-    $role_primary_key = self::$roles->add($role);
-    return $role_name;
+    //identifier is *not* always rid, I think.  Not sure.
+    $role_identifier = $this->getDriver()->roleCreate($permissions);
+    self::$roles->add($role_identifier);
+    return $role_identifier;
   }
 
   /**
@@ -786,10 +776,6 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The created language, or FALSE if the language was already created.
    */
   public function languageCreate(\stdClass $language) {
-    $named_alias = AliasCache::extractAliasKey($role);
-    if (!is_null($named_alias)) {
-      throw new \Exception(sprintf('%s::%s: Aliasing for languages is not yet supported', get_class($this), __FUNCTION__));
-    }
     $this->dispatchHooks('BeforeLanguageCreateScope', $language);
     $language = $this->getDriver()->languageCreate($language);
     if ($language) {
