@@ -45,7 +45,11 @@ class NodeCache extends CacheBase {
       return TRUE;
     }
     $nids = array_keys(get_object_vars($this->cache));
-    $context->getDriver()->nodeDeleteMultiple($nids);
+    foreach($nids as $nid){
+      $node = new \stdClass();
+      $node->nid = $nid;
+      $context->getDriver()->nodeDelete($node);
+    }
     $this->resetCache();
   }
 

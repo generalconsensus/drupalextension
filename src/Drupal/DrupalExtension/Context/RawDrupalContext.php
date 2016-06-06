@@ -634,7 +634,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $this->dispatchHooks('BeforeUserCreateScope', $user);
     $this->parseEntityFields('user', $user);
     $this->getDriver()->userCreate($user);
-    if (isset($user->roles) && !is_empty($user->roles)) {
+    if (isset($user->roles) && !empty($user->roles)) {
       foreach ($user->roles as $role) {
         if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
           // Only add roles other than 'authenticated user'.

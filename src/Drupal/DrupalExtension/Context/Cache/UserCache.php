@@ -44,6 +44,7 @@ class UserCache extends CacheBase {
       throw new \Exception(sprintf("%s::%s: A user object must be passed to the add method for this cache.", get_class($this), __FUNCTION__));
     }
     $metadata = array(
+      'name' => $value->name,
       'pass' => $value->pass,
     );
     $this->addMetaData($index, $metadata);
@@ -111,14 +112,16 @@ class UserCache extends CacheBase {
    *   The metadata key to retrieve.  Returns entire
    *   metadata object if key is null.
    */
-  private function getMetadata($index, $key) {
+  private function getMetadata($index, $key=NULL) {
     $index = strval($index);
     if (!property_exists($this->metadata, $index)) {
-      return FALSE;
+      throw new \Exception(sprintf("%s::%s: line %s: The user with id %s is unknown to this cache.", get_class($this), __FUNCTION__, __LINE__, $index));
+    }
+    if(empty($key)){
+      return $this->metadata->{$index};
     }
     if (!property_exists($this->metadata->{$index}, $key)) {
-      // Throw new \Exception(sprintf("%s::%s: line %s: The metadata with key %s was never set for this user", get_class($this), __FUNCTION__, __LINE__, $key));.
-      return FALSE;
+      throw new \Exception(sprintf("%s::%s: line %s: The metadata with key %s was never set for this user", get_class($this), __FUNCTION__, __LINE__, $key));
     }
     return $this->metadata->{$index}->{$key};
   }
@@ -149,7 +152,19 @@ class UserCache extends CacheBase {
       return TRUE;
     }
     $uids = array_keys(get_object_vars($this->cache));
-    $context->getDriver()->userDeleteMultiple($uids);
+    foreach($uids as $uid){
+      $user = new \stdClass();
+      $user->uid = $uid;
+      foreach($this->getMetaData($user->uid) as $k=>$v){
+        //adds back items critical for deletion in some drivers.
+        $user->{$k} = $v;
+      }
+      //print sprintf("%s::%s line %s: Deleting user %s", get_class($this), __FUNCTION__, __LINE__, print_r($user, TRUE));
+      $context->getDriver()->userDelete($user);
+    }
+    //see note on batch processing at
+    //https://api.drupal.org/api/drupal/modules%21user%21user.module/function/user_cancel/7.x
+    $context->getDriver()->processBatch();
     $this->resetCache();
     return TRUE;
   }
