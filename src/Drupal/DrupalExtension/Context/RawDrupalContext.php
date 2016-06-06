@@ -167,15 +167,19 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   protected function clearCaches() {
     if (self::$scenarioStaticInitialized) {
-      $this->logout();
-      self::$aliases->clean($this);
-      self::$users->clean($this);
-      self::$nodes->clean($this);
-      self::$languages->clean($this);
-      self::$terms->clean($this);
-      self::$roles->clean($this);
-      self::$contexts->clean($this);
-      self::$scenarioStaticInitialized = FALSE;
+      try{
+        $this->logout();
+        self::$aliases->clean($this);
+        self::$users->clean($this);
+        self::$nodes->clean($this);
+        self::$languages->clean($this);
+        self::$terms->clean($this);
+        self::$roles->clean($this);
+        self::$contexts->clean($this);
+        self::$scenarioStaticInitialized = FALSE;
+      } catch (\Exception $e){
+        throw new \Exception(sprintf("%s::%s line %s: Exception while clearning caches: %s", get_class($this), __FUNCTION__, __LINE__, $e->getMessage()));
+      }
     }
   }
 
