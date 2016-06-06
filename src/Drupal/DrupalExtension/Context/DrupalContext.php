@@ -136,21 +136,27 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
+   * Finds the user with the provided name, and logs them in.
+   *
+   * Note: "Name", in this context, refers to the actual user's name, not
+   * just a referential alias (as would be created by the @ symbol).
+   *
+   * @param string $name
+   *   The name of the user to be retrieved.
+   *
+   * @throws \Exception
+   *   If the user with the provided name does not exist in the db (or if
+   *   more than one user with the provided name exists in the db - ambiguity
+   *   is not currently tolerated).
+   *
    * @Given I am logged in as :name
    */
   public function assertLoggedInByName($name) {
-    try{
-      $users = self::$users->find(array('name'=>$name), $this);
-      if(empty($users)){
-        throw new \Exception("No user could be found with the name $name");
-      }
-      if(count($users) > 1){
-        throw new \Exception(sprintf("Multiple users with the name %s found.  Please be more specific.", get_class($this), __FUNCTION__, __LINE__, $name));
-      }
-      //log in with the first such user.
-      $this->login($users[0]);
+    try {
+      $user = $this->getNamedUser($name);
+      $this->login($user);
     }
-    catch(\Exception $e){
+    catch (\Exception $e) {
       throw new \Exception(sprintf("%s::%s line %s: %s", get_class($this), __FUNCTION__, __LINE__, $e->getMessage()));
     }
   }

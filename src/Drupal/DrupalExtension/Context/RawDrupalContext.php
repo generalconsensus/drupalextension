@@ -167,7 +167,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    */
   protected function clearCaches() {
     if (self::$scenarioStaticInitialized) {
-      try{
+      try {
         $this->logout();
         self::$aliases->clean($this);
         self::$users->clean($this);
@@ -177,7 +177,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
         self::$roles->clean($this);
         self::$contexts->clean($this);
         self::$scenarioStaticInitialized = FALSE;
-      } catch (\Exception $e){
+      }
+      catch (\Exception $e) {
         throw new \Exception(sprintf("%s::%s line %s: Exception while clearning caches: %s", get_class($this), __FUNCTION__, __LINE__, $e->getMessage()));
       }
     }
@@ -326,7 +327,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * {@inheritDoc}.
+   * {@InheritDoc}.
    */
   public function setDrupal(DrupalDriverManager $drupal) {
     $this->drupal = $drupal;
@@ -633,12 +634,15 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $this->dispatchHooks('BeforeUserCreateScope', $user);
     $this->parseEntityFields('user', $user);
     $this->getDriver()->userCreate($user);
-    foreach ($user->roles as $role) {
-      if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
-        // Only add roles other than 'authenticated user'.
-        $this->getDriver()->userAddRole($user, $role);
+    if (isset($user->roles) && !is_empty($user->roles)) {
+      foreach ($user->roles as $role) {
+        if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
+          // Only add roles other than 'authenticated user'.
+          $this->getDriver()->userAddRole($user, $role);
+        }
       }
     }
+
     $this->dispatchHooks('AfterUserCreateScope', $user);
     self::$users->add($user->uid, $user);
     if (!is_null($named_alias)) {
@@ -760,7 +764,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The role id of the newly created role.
    */
   public function roleCreate($permissions) {
-    //identifier is *not* always rid, I think.  Not sure.
+    // Identifier is *not* always rid, I think.  Not sure.
     $role_identifier = $this->getDriver()->roleCreate($permissions);
     self::$roles->add($role_identifier);
     return $role_identifier;
@@ -800,7 +804,14 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   user has not yet been created (in this scenario - doesn't check the db).
    */
   public function getNamedUser($name) {
-    throw new \Exception("TODO: implement RawDrupalContext getNamedUser");
+    $users = self::$users->find(array('name' => $name), $this);
+    if (empty($users)) {
+      throw new \Exception("No user could be found with the name $name");
+    }
+    if (count($users) > 1) {
+      throw new \Exception(sprintf("Multiple users with the name %s found.  Please be more specific.", get_class($this), __FUNCTION__, __LINE__, $name));
+    }
+    return $users[0];
   }
 
   /**
@@ -902,13 +913,12 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       // This test may fail if the driver did not load any site yet.
     }
 
-    // Some themes do not add that class to the body, so lets check if the
-    // login form is displayed on /user/login.
-    // $session->visit($this->locatePath('/user/login'));
-    // print sprintf("Drupal selector: %s\n", $this->getDrupalSelector('login_form_selector'));
-    // if (!$page->has('css', $this->getDrupalSelector('login_form_selector'))) {
-    //   return TRUE;
-    // }.
+    // Some themes do not add that class to the body, so lets check if the login
+    // form is displayed on /user/login.
+    $session->visit($this->locatePath('/user/login'));
+    if (!$page->has('css', $this->getDrupalSelector('login_form_selector'))) {
+      return TRUE;
+    }
     $session->visit($this->locatePath('/'));
 
     // If a logout link is found, we are logged in. While not perfect, this is
