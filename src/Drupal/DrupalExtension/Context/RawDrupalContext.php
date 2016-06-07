@@ -1095,7 +1095,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   A string version of the object, suitable for output in a
    *   CLI environment.
    */
-  private function stringifyObject($o, $options = array()) {
+  protected function stringifyObject($o, $options = array()) {
     if (!is_array($object) && !is_object($object)) {
       return $object;
     }
