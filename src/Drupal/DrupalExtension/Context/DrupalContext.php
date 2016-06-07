@@ -516,14 +516,13 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    */
   public function iSetTheValuesTo($alias, TableNode $table) {
     $o = $this->resolveAlias($alias);
-    $type = $this->resolveAliasType($alias);
     $values = self::convertTableNodeToArray($table);
-    switch ($type) {
-      case 'node':
+    switch (self::$aliases->getCache($alias)) {
+      case 'nodes':
         $this->nodeAlter($o, $values);
         break;
 
-      case 'user':
+      case 'users':
         $this->userAlter($o, $values);
         break;
 
@@ -610,42 +609,78 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
+   * Retrieves the currently logged in user.
+   *
+   * Note that this relies on the stored cached value of the current user
+   * being correct, rather than programattically trying to determine the current
+   * user via the drupal db.
+   *
+   * @When I debug the current user
+   */
+  public function iDebugTheCurrentUser() {
+    $user = $this->getLoggedInUser();
+
+  }
+
+  /**
    * Retrieves the aliased object, and prints it to the console.
    *
-   * For debugging purposes.  Optionally expands the value of the fields in
-   * the $fields argument.  This is for viewing the entire object - to focus
-   * on a single field value, the debugAliasValue method might be preferable.
+   * For debugging purposes. Optionally expands the value of the fields in the
+   * $fields argument. This is for viewing the entire object - to focus on a
+   * single field value, the debugAliasValue method might be preferable.
    *
    * @param string $alias
    *   The named alias of an already-created object.
-   * @param string $field
-   *   (optional) The additional name of a field whose
-   *   array/object value should be expanded (such types are collapsed by
-   *   default for brevity. A value of 'all' in this field will expend the whole
-   *   object).
+   * @param string $fields
+   *   (optional) The additional names of one or more
+   *   fields (separated by comma) whose array/object value should be expanded
+   *   (such types are collapsed by default for brevity. A value of 'all' in
+   *   this field will expend the whole object).
    *
    * @Given I debug the object( named) :alias
-   * @Given I debug the object( named) :alias and expand the value(s) of :field
+   * @Given I debug the object( named) :alias and expand the value(s) of
+   * :field
    * @Given I debug the object( named) :alias and expand the field(s) :field
    */
-  public function whenIdebugTheObjectNamed($alias, $field = NULL) {
+  public function whenIdebugTheObjectNamed($alias, $fields = NULL) {
 
     $object = $this->resolveAlias($alias);
     if (empty($object)) {
       throw new \Exception(sprintf("%s::%s: No value was found for the alias %s", get_class($this), __FUNCTION__, $alias));
     }
+    $expand_fields = ($fields === NULL) ? array() : array_map('trim', explode(',', $fields));
+    print $this->stringifyObject($object, array('expand fields' => fields));
+  }
 
+  /**
+   * Provides a stringified version of an object.
+   *
+   * This only gives one level deep, and reduces data structures to
+   * "[Obj/Arr]" unless specifically designated otherwise. It's designed to
+   * give an overview of a data structure while not overwhelming the CLI
+   * output with noise.
+   *
+   * @param object $o
+   *   The object to stringify.
+   * @param array $options
+   *   An array of options to control output.
+   *
+   * @return string
+   *   A string version of the object, suitable for output in a CLI environment.
+   */
+  private function stringifyObject($o, $options = array()) {
     if (!is_array($object) && !is_object($object)) {
-      print $object;
-      return;
+      return $object;
     }
-    $expand_field = ($field) ?: '';
-    $expand_all   = (!empty($expand_field) && strtolower($expand_field) === 'all');
+    $options = $options + array(
+      'expand fields' => array(),
+    );
+    $expand_all   = in_array('all', $options['expand fields']);
     $output       = "\n<$alias>\n";
 
     foreach ($object as $k => $v) {
       if (is_object($v) || is_array($v)) {
-        if ($expand_all || (!empty($expand_field) && $k === $expand_field)) {
+        if ($expand_all || in_array($k, $options['expand fields'])) {
           $obj = print_r($v, TRUE);
           $obj = implode("\n", array_map(function ($value) {
             return "\t$value";
@@ -661,7 +696,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       $output .= "\t$k: \"$v\",\n";
     }
     $output .= "</$alias>\n";
-    print $output;
+    return $output;
   }
 
   /**

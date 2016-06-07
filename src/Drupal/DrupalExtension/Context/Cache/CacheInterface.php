@@ -3,7 +3,7 @@
 namespace Drupal\DrupalExtension\Context\Cache;
 
 
-use Behat\Behat\Context\TranslatableContext as Context;
+use Drupal\DrupalExtension\Context\RawDrupalContext as Context;
 
 /**
  * The base interface for DrupalContext Caching classes.

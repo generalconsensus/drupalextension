@@ -2,7 +2,7 @@
 
 namespace Drupal\DrupalExtension\Context\Cache;
 
-use Behat\Behat\Context\TranslatableContext as Context;
+use Drupal\DrupalExtension\Context\RawDrupalContext as Context;
 
 /**
  * A cache that stores references to other caches during creation, so that

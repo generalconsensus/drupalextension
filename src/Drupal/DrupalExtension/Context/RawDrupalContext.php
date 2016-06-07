@@ -635,6 +635,9 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $this->parseEntityFields('user', $user);
     $this->getDriver()->userCreate($user);
     if (isset($user->roles) && !empty($user->roles)) {
+      if (!is_array($user->roles)) {
+        throw new \Exception(sprintf("%s::%s line %s: the roles property must be an array", get_class($this), __FUNCTION__, __LINE__));
+      }
       foreach ($user->roles as $role) {
         if (!in_array(strtolower($role), array('authenticated', 'authenticated user'))) {
           // Only add roles other than 'authenticated user'.
