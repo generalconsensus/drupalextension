@@ -1078,4 +1078,53 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     throw new \Exception(sprintf('%s::%s: Failed to find a row containing "%s" on the page %s', get_class($this), __FUNCTION__, $search, $this->getSession()->getCurrentUrl()));
   }
 
+  /**
+   * Provides a stringified version of an object.
+   *
+   * Convenience function for debugging. This only gives one level deep, and
+   * reduces data structures to "[Obj/Arr]" unless specifically designated
+   * otherwise. It's designed to give an overview of a data structure while
+   * not overwhelming the CLI output with noise.
+   *
+   * @param object $o
+   *   The object to stringify.
+   * @param array $options
+   *   An array of options to control output.
+   *
+   * @return string
+   *   A string version of the object, suitable for output in a
+   *   CLI environment.
+   */
+  private function stringifyObject($o, $options = array()) {
+    if (!is_array($object) && !is_object($object)) {
+      return $object;
+    }
+    $options = $options + array(
+      'label' => 'object',
+      'expand fields' => array(),
+    );
+    $expand_all   = in_array('all', $options['expand fields']);
+    $output       = "\n<$options[label]>\n";
+
+    foreach ($object as $k => $v) {
+      if (is_object($v) || is_array($v)) {
+        if ($expand_all || in_array($k, $options['expand fields'])) {
+          $obj = print_r($v, TRUE);
+          $obj = implode("\n", array_map(function ($value) {
+            return "\t$value";
+          }, explode("\n", $obj)));
+          $output .= "\t$k: $obj\n";
+          continue;
+        }
+        else {
+          $output .= "\t$k: [Obj/Arr]\n";
+          continue;
+        }
+      }
+      $output .= "\t$k: \"$v\",\n";
+    }
+    $output .= "</<$options[label]>\n";
+    return $output;
+  }
+
 }

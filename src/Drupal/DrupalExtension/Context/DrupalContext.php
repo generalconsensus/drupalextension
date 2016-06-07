@@ -619,7 +619,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    */
   public function iDebugTheCurrentUser() {
     $user = $this->getLoggedInUser();
-
+    print $this->stringifyObject($user, array('label' => 'Current User'));
   }
 
   /**
@@ -649,54 +649,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       throw new \Exception(sprintf("%s::%s: No value was found for the alias %s", get_class($this), __FUNCTION__, $alias));
     }
     $expand_fields = ($fields === NULL) ? array() : array_map('trim', explode(',', $fields));
-    print $this->stringifyObject($object, array('expand fields' => fields));
-  }
-
-  /**
-   * Provides a stringified version of an object.
-   *
-   * This only gives one level deep, and reduces data structures to
-   * "[Obj/Arr]" unless specifically designated otherwise. It's designed to
-   * give an overview of a data structure while not overwhelming the CLI
-   * output with noise.
-   *
-   * @param object $o
-   *   The object to stringify.
-   * @param array $options
-   *   An array of options to control output.
-   *
-   * @return string
-   *   A string version of the object, suitable for output in a CLI environment.
-   */
-  private function stringifyObject($o, $options = array()) {
-    if (!is_array($object) && !is_object($object)) {
-      return $object;
-    }
-    $options = $options + array(
-      'expand fields' => array(),
-    );
-    $expand_all   = in_array('all', $options['expand fields']);
-    $output       = "\n<$alias>\n";
-
-    foreach ($object as $k => $v) {
-      if (is_object($v) || is_array($v)) {
-        if ($expand_all || in_array($k, $options['expand fields'])) {
-          $obj = print_r($v, TRUE);
-          $obj = implode("\n", array_map(function ($value) {
-            return "\t$value";
-          }, explode("\n", $obj)));
-          $output .= "\t$k: $obj\n";
-          continue;
-        }
-        else {
-          $output .= "\t$k: [Obj/Arr]\n";
-          continue;
-        }
-      }
-      $output .= "\t$k: \"$v\",\n";
-    }
-    $output .= "</$alias>\n";
-    return $output;
+    print $this->stringifyObject($object, array('label' => $alias, 'expand fields' => fields));
   }
 
   /**
