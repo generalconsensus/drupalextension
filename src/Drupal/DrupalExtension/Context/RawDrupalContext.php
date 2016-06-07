@@ -1096,8 +1096,8 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   CLI environment.
    */
   protected function stringifyObject($o, $options = array()) {
-    if (!is_array($object) && !is_object($object)) {
-      return $object;
+    if (!is_array($o) && !is_object($o)) {
+      return $o;
     }
     $options = $options + array(
       'label' => 'object',
@@ -1106,7 +1106,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     $expand_all   = in_array('all', $options['expand fields']);
     $output       = "\n<$options[label]>\n";
 
-    foreach ($object as $k => $v) {
+    foreach ($o as $k => $v) {
       if (is_object($v) || is_array($v)) {
         if ($expand_all || in_array($k, $options['expand fields'])) {
           $obj = print_r($v, TRUE);
