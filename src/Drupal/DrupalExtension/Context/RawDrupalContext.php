@@ -678,7 +678,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
     }
     self::$aliases->convertAliasValues($values, $this);
     $this->parseEntityFields('user', $values);
-    $this->getDriver()->getCore()->userAlter($user, $values);
+    $this->getDriver()->userAlter($user, $values);
     return $user;
 
   }
