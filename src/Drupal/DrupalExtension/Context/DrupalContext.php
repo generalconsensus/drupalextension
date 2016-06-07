@@ -649,7 +649,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
       throw new \Exception(sprintf("%s::%s: No value was found for the alias %s", get_class($this), __FUNCTION__, $alias));
     }
     $expand_fields = ($fields === NULL) ? array() : array_map('trim', explode(',', $fields));
-    print $this->stringifyObject($object, array('label' => $alias, 'expand fields' => $fields));
+    print $this->stringifyObject($object, array('label' => $alias, 'expand fields' => $expand_fields));
   }
 
   /**
