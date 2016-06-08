@@ -259,12 +259,13 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * This has the side effect of cleaning any cached objects from the
    * database.
    *
-   * TODO: This approach assumes all context scenarios end at the same time.
-   * Revisit to ensure this is a valid assumption.
-   *
    * @AfterScenario
    */
   public function afterScenario(AfterScenarioScope $scope) {
+    //Note: this clears cache upon the afterscenario hook from the first
+    //invoking context.  This assumes that none of the other context
+    //instances will have need of anything in the cache in their own
+    //afterscenario hook. This may be an erroneous assumption.
     self::clearCaches();
   }
 

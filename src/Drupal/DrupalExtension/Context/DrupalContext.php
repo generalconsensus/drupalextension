@@ -584,8 +584,8 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *
    * @param string $aliasfield
    *   An alias/field combination to display.  Entry
-   *   must be of the form '@:' + alias_name + '/' + field_name, e.g.:
-   *   '@:test_user/uid'.
+   *   must be of the form alias_name + '/' + field_name, e.g.:
+   *   'test_user/uid'.
    *
    * @Given I debug the alias( value) :alias
    */
