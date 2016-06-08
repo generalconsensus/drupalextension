@@ -1123,7 +1123,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       }
       $output .= "\t$k: \"$v\",\n";
     }
-    $output .= "</<$options[label]>\n";
+    $output .= "</$options[label]>\n";
     return $output;
   }
 
