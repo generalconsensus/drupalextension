@@ -5,6 +5,8 @@ namespace Drupal\DrupalExtension\Context;
 use Behat\Behat\Context\TranslatableContext;
 use Behat\Gherkin\Node\TableNode;
 
+// Left in for reference.
+// use Behat\Behat\Tester\Exception\PendingException;.
 /**
  * Provides pre-built step definitions for interacting with Drupal.
  */
@@ -61,9 +63,9 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * information.
    *
    * @param string $alias
-   *   The alias you wish to assign to the new user.
+   *   :alias: The alias you wish to assign to the new user.
    * @param TableNode $table
-   *   The field information for the new user.
+   *   :table: The field information for the new user.
    *   Data provided in the form:
    *   | name      | Example user     |
    *   | mail      | user@example.com |
@@ -89,7 +91,7 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    * 'Given the user' step for more information.
    *
    * @param string $alias
-   *   The named alias assigned to the user when they were created.
+   *   :alias: The named alias assigned to the user when they were created.
    *
    * @Given I am the named user :alias
    */
@@ -577,20 +579,17 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
   }
 
   /**
-   * Prints the aliased value to the console.
+   * Retrieves the aliased value.
    *
-   * Retrieves the provided aliased object, and prints the value of the
-   * indicated field.
+   * Retrieves the provided aliased object, and the value of the specified
+   * field for that object.
    *
    * @param string $aliasfield
    *   An alias/field combination to display.  Entry
    *   must be of the form alias_name + '/' + field_name, e.g.:
    *   'test_user/uid'.
-   *
-   * @Given I debug the alias( value) :alias
    */
-  public function debugAliasValue($aliasfield) {
-
+  public function getAliasValue($aliasfield, $debug = FALSE) {
     // TODO: revisit this regex to ensure this can match any alias/field name
     // combination.
     @list($alias, $field) = explode('/', ltrim($aliasfield, '@:'));
@@ -604,22 +603,46 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
     $field_value = $object->{$field};
     $str_field_value = (is_scalar($field_value)) ? $field_value : print_r($field_value, TRUE);
     $str_field_value = implode("\n\t", explode("\n", $str_field_value));
-    print sprintf("\n<%s>\n\tField: %s, Value: \n\t%s\n</%s>\n", $alias, $field, $str_field_value, $alias);
+    if ($debug) {
+      print sprintf("\n<%s>\n\tField: %s, Value: \n\t%s\n</%s>\n", $alias, $field, $str_field_value, $alias);
+    }
+    return $field_value;
+  }
 
+  /**
+   * Prints the aliased value to the console.
+   *
+   * Retrieves the provided aliased object, and prints the value of the
+   * indicated field.
+   *
+   * @param string $aliasfield
+   *   An alias/field combination to display.  Entry
+   *   must be of the form alias_name + '/' + field_name, e.g.:
+   *   'test_user/uid'.
+   *
+   * @Given I debug the alias( value) :alias
+   */
+  public function debugAliasValue($aliasfield) {
+    $this->getAliasValue($aliasfield, TRUE);
   }
 
   /**
    * Retrieves the currently logged in user.
    *
    * Note that this relies on the stored cached value of the current user
-   * being correct, rather than programattically trying to determine the current
-   * user via the drupal db.
+   * being correct, rather than programmatically trying to determine the current
+   * user via the drupal db.  This means that if login is done via interface
+   * mainpulation (Mink API), this method could fail.
    *
-   * @When I debug the current user
+   * @Given /I debug the current user and expand the field "(?P<fields>(?:[^"]|\\")*)"/
    */
-  public function iDebugTheCurrentUser() {
+  public function iDebugTheCurrentUser($fields = NULL) {
     $user = $this->getLoggedInUser();
-    print $this->stringifyObject($user, array('label' => 'Current User'));
+    $options = array('label' => 'Current User');
+    if (!is_null($fields)) {
+      $options['expand fields'] = array_map("trim", explode(',', $fields));
+    }
+    fwrite(STDOUT, $this->stringifyObject($user, $options));
   }
 
   /**
@@ -637,19 +660,16 @@ final class DrupalContext extends RawDrupalContext implements TranslatableContex
    *   (such types are collapsed by default for brevity. A value of 'all' in
    *   this field will expend the whole object).
    *
-   * @Given I debug the object( named) :alias
-   * @Given I debug the object( named) :alias and expand the value(s) of
-   * :field
-   * @Given I debug the object( named) :alias and expand the field(s) :field
+   * @Given /I debug the (?:\w+) (?:named )?"([^"]+)"$/
+   * @Given /I debug the (?:\w+) (?:named )?"([^"]+)" and expand the values? of "([^"]+)"/
    */
   public function whenIdebugTheObjectNamed($alias, $fields = NULL) {
-
     $object = $this->resolveAlias($alias);
     if (empty($object)) {
       throw new \Exception(sprintf("%s::%s: No value was found for the alias %s", get_class($this), __FUNCTION__, $alias));
     }
     $expand_fields = ($fields === NULL) ? array() : array_map('trim', explode(',', $fields));
-    print $this->stringifyObject($object, array('label' => $alias, 'expand fields' => $expand_fields));
+    fwrite(STDOUT, $this->stringifyObject($object, array('label' => $alias, 'expand fields' => $expand_fields)));
   }
 
   /**

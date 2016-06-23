@@ -262,10 +262,10 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    * @AfterScenario
    */
   public function afterScenario(AfterScenarioScope $scope) {
-    //Note: this clears cache upon the afterscenario hook from the first
-    //invoking context.  This assumes that none of the other context
-    //instances will have need of anything in the cache in their own
-    //afterscenario hook. This may be an erroneous assumption.
+    // Note: this clears cache upon the afterscenario hook from the first
+    // invoking context.  This assumes that none of the other context
+    // instances will have need of anything in the cache in their own
+    // afterscenario hook. This may be an erroneous assumption.
     self::clearCaches();
   }
 
@@ -342,7 +342,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
   }
 
   /**
-   * {@inheritDoc}.
+   * {@InheritDoc}.
    */
   public function setDispatcher(HookDispatcher $dispatcher) {
     $this->dispatcher = $dispatcher;
@@ -876,7 +876,7 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       // $user->roles = array_diff($user->roles, array('authenticated user'));.
       if (!$this->loggedIn()) {
         fwrite(STDOUT, "Failed to login as user:" . print_r($user, TRUE));
-        $this->callContext('Drupal', 'iPutABreakpoint');
+        // $this->callContext('Drupal', 'iPutABreakpoint');.
         throw new \Exception(sprintf("%s::%s: Failed to log in as user '%s' with role(s) '%s'", get_class($this), __FUNCTION__, $user->name, implode(", ", $user->roles)));
       }
       self::$aliases->add('_current_user_', array('value' => $user->uid, 'cache' => 'users'));
@@ -974,17 +974,20 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
    *   The name of the other context.  This cannot be arbitrary -  said context
    *   must have been explicitly stored in the class during the BeforeScenario
    *   hook (see gatherContexts).
-   * @param string $method
-   *   The name of the method to invoke.
    *
-   * @return mixed
-   *   The results of the callback from the invoked method.
+   * @return RawDrupalContext
+   *   The cached context object.  This context must have been instantiated
+   *   for a given scenario in order to be retrieved; this function will
+   *   throw an exception most likely in cases where the calling test suite
+   *   does not include this context among its list of needed resources in
+   *   the behat.yml config file.
    *
    * @throws \Exception
    *   If the passed method does not exist on the requested context, or if the
    *   named context does not exist.
    */
-  public function callContext($context_name, $method) {
+  public function getContext($context_name) {
+    $other_context = NULL;
     try {
       // Assume context_name is the full literal classpath for starters.
       $other_context = self::$contexts->get($context_name, $this);
@@ -1003,6 +1006,28 @@ class RawDrupalContext extends RawMinkContext implements DrupalAwareInterface {
       $other_context = $other_contexts[0];
       unset($other_contexts);
     }
+    return $other_context;
+  }
+
+  /**
+   * Convenience method.  Invokes a method on another context object.
+   *
+   * @param string $context_name
+   *   The name of the other context.  This cannot be arbitrary -  said context
+   *   must have been explicitly stored in the class during the BeforeScenario
+   *   hook (see gatherContexts).
+   * @param string $method
+   *   The name of the method to invoke.
+   *
+   * @return mixed
+   *   The results of the callback from the invoked method.
+   *
+   * @throws \Exception
+   *   If the passed method does not exist on the requested context, or if the
+   *   named context does not exist.
+   */
+  public function callContext($context_name, $method) {
+    $other_context = $this->getContext($context_name);
     if (!method_exists($other_context, $method)) {
       throw new \Exception(sprintf("%s::%s: The method %s does not exist in the %s context", get_class($this), __FUNCTION__, $method, $context_name));
     }
